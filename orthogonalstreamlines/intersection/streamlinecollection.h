@@ -7,7 +7,7 @@ public:
     int* nb_segments;
     int nt;
 
-    StreamlineCollection() {}
+    StreamlineCollection();
     StreamlineCollection(int nb_curves_, int *nb_segments_, double** vertices_, int** triangle_idx_);
     ~StreamlineCollection();
 

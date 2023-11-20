@@ -9,6 +9,16 @@ StreamlineCollection::StreamlineCollection(int nb_curves_, int *nb_segments_,
 }
 
 //-----------------------------------------------------------------------------
+StreamlineCollection::StreamlineCollection()
+{
+    nt = -1;
+    bin_size = NULL;
+    bin_idcurv = NULL;
+    bin_idseg = NULL;
+    buffer = NULL;
+}
+
+//-----------------------------------------------------------------------------
 StreamlineCollection::~StreamlineCollection()
 {
     delete [] bin_size;

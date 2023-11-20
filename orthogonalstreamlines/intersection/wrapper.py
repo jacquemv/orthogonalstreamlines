@@ -5,7 +5,8 @@ __all__ = ['create_cable_network', 'unpack_cables', 'pack_cables',
            'edge_lengths']
 
 #-----------------------------------------------------------------------------
-def create_cable_network(face_normals, lines1, faces1, lines2, faces2):
+def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
+                         cut_loose_ends=True, remove_empty_cables=True):
     """Create a cable network from two sets of orthogonal streamlines built
     on a triangulated surface mesh. Each vertex of the cable network is the 
     intersection between two orthogonal streamlines.
@@ -24,6 +25,10 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2):
             transverse direction
         faces2 (list of (n-1)-int32 vectors): same as faces1, but for the 
             transverse direction
+        cut_loose_ends (bool): remove nodes that only have one neighbor 
+            (default: True)
+        remove_empty_cables (bool): remove cables of length 0 or 1
+            (default: True)
     
     Returns:
         cables (int array): concatenation of arrays of vertex indices, each 
@@ -40,7 +45,9 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2):
             direction as the vector normal to the surface, and 0 otherwise
     """
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
-    return find_intersections(face_normals, lines1, faces1, lines2, faces2)
+    return find_intersections(face_normals, lines1, faces1, lines2, faces2,
+                              cut_loose_ends=cut_loose_ends, 
+                              remove_empty_cables=remove_empty_cables)
 
 #-----------------------------------------------------------------------------
 def unpack_cables(cables, cables_len):

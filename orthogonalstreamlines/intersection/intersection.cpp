@@ -14,6 +14,12 @@ Intersection::Intersection()
     dict_size = NULL;
     _ver1_ptr = _ver2_ptr = NULL;
     _tri1_ptr = _tri2_ptr = NULL;
+    ver = NULL;
+    ver_idtri = NULL;
+    ver_sign = NULL;
+    cables = NULL;
+    cables_split = NULL;
+    buffer = NULL;
 }
 
 //-----------------------------------------------------------------------------

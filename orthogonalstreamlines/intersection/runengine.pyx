@@ -22,7 +22,9 @@ cdef extern from "intersection.h":
 
 #-----------------------------------------------------------------------------
 def find_intersections(double[:, ::1] face_normals, 
-                       list lines1, list faces1, list lines2, list faces2):
+                       list lines1, list faces1, list lines2, list faces2,
+                       int cut_loose_ends=True, 
+                       int remove_empty_cables=True):
     cdef:
         int nt, nv, i, nc, nc1, nc2, size
         Intersection engine
@@ -40,21 +42,22 @@ def find_intersections(double[:, ::1] face_normals,
 
     # check input arguments
     if len(lines1) != len(faces1):
-        raise ValueError('arguments lines1 and faces1 must have '
-                         'the same length')
+        raise ValueError('arguments lines1 and faces1 must be '
+                         'two lists of same length')
     if len(lines2) != len(faces2):
-        raise ValueError('arguments lines2 and faces2 must have '
-                         'the same length')
+        print('ERROR 2')
+        raise ValueError('arguments lines2 and faces2 must be '
+                         'two lists of same length')
 
     for i in range(len(lines1)):
         if lines1[i].size != 3*faces1[i].size+3:
-            raise ValueError(f'arguments lines1[{i}] and faces1[{i}] must '
-                              'have the same number of rows')
+            raise ValueError(f'argument lines1[{i}] must have exactly one '
+                             f'more row than faces1[{i}]')
     
     for i in range(len(lines2)):
         if lines2[i].size != 3*faces2[i].size+3:
-            raise ValueError(f'arguments lines2[{i}] and faces2[{i}] must '
-                              'have the same number of rows')
+            raise ValueError(f'argument lines2[{i}] must have exactly one '
+                             f'more row than faces2[{i}]')
     
     # create the object 
     nt = face_normals.shape[0]
@@ -84,8 +87,10 @@ def find_intersections(double[:, ::1] face_normals,
 
     # run the code
     engine.identify_intersections()
-    engine.cut_loose_cable_ends()
-    engine.remove_zero_length_cables()
+    if cut_loose_ends:
+        engine.cut_loose_cable_ends()
+    if remove_empty_cables:
+        engine.remove_zero_length_cables()
 
     # return the output
     nv = engine.get_number_of_vertices()
