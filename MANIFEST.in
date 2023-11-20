@@ -1,0 +1,2 @@
+graft orthogonalstreamlines
+global-exclude *.py[cod] *.so
