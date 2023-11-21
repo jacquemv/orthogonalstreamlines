@@ -209,24 +209,21 @@ int segments_intersect(double* A, double* B, double* C, double* D,
     double s[3] = {D[0]-C[0], D[1]-C[1], D[2]-C[2]};
     double pq[3] = {C[0]-A[0], C[1]-A[1], C[2]-A[2]};
     double y[3], n2, u, v;
-    const double eps = 0;
     vcross(n, r, s);
     n2 = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
     if (n2 == 0)
         return 0;
     vcross(y, pq, s);
     u = (y[0]*n[0] + y[1]*n[1] + y[2]*n[2])/n2;
-    if (u <= -eps || u >= 1+eps)
+    if ((u < 0) || (u > 1))
         return 0;
     vcross(y, pq, r);
     v = (y[0]*n[0] + y[1]*n[1] + y[2]*n[2])/n2;
-    if (v <= -eps || v >= 1+eps)
+    if ((v < 0) || (v > 1))
         return 0;
     X[0] = A[0]+u*r[0];
     X[1] = A[1]+u*r[1];
     X[2] = A[2]+u*r[2];
-    if (u >= 1-eps || u <= eps)
-        return 2;
     return 1;
 }
 
@@ -459,3 +456,29 @@ int Intersection::remove_zero_length_cables()
     nc2 -= cnt2;
     return cnt1 + cnt2;
 }
+
+//-----------------------------------------------------------------------------
+ int Intersection::remove_duplicates(double epsilon)
+ {
+    int cnt = 0;
+    double eps2 = epsilon*epsilon;
+
+    for (int n=0;n<nc;n++) {
+        for (int i = cables_split[n]; i < cables_split[n+1]-1; i++) {
+            double dx[3];
+            vdiff(dx, ver+3*cables[i], ver+3*cables[i+1]);
+            if (vnorm2(dx) < eps2) {
+                if (cables[i] < cables[i+1]) // remove the largest index
+                    cables[i+1] = -1;
+                else
+                    cables[i] = -1;
+                cnt++;
+            }
+        }
+    }
+    if (cnt) {
+        remove_tagged_cable_nodes();
+        remove_isolated_vertices();
+    }
+    return cnt;
+ }

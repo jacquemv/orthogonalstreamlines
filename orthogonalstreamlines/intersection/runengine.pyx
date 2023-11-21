@@ -10,6 +10,7 @@ cdef extern from "intersection.h":
         void identify_intersections()
         int cut_loose_cable_ends()
         int remove_zero_length_cables()
+        int remove_duplicates(double epsilon)
 
         int get_number_of_vertices()
         void get_vertices(double* vertices)
@@ -23,8 +24,8 @@ cdef extern from "intersection.h":
 #-----------------------------------------------------------------------------
 def find_intersections(double[:, ::1] face_normals, 
                        list lines1, list faces1, list lines2, list faces2,
-                       int cut_loose_ends=True, 
-                       int remove_empty_cables=True):
+                       int cut_loose_ends=True, int remove_empty_cables=True, 
+                       int remove_duplicates=True, double epsilon=1e-8):
     cdef:
         int nt, nv, i, nc, nc1, nc2, size
         Intersection engine
@@ -91,6 +92,9 @@ def find_intersections(double[:, ::1] face_normals,
         engine.cut_loose_cable_ends()
     if remove_empty_cables:
         engine.remove_zero_length_cables()
+    
+    if remove_duplicates:
+        engine.remove_duplicates(epsilon)
 
     # return the output
     nv = engine.get_number_of_vertices()

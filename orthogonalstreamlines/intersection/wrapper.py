@@ -2,18 +2,20 @@ import numpy as np
 from .runengine import find_intersections
 
 __all__ = ['create_cable_network', 'unpack_cables', 'pack_cables', 
-           'edge_lengths']
+           'edge_lengths', 'tri_normals']
 
 #-----------------------------------------------------------------------------
 def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
-                         cut_loose_ends=True, remove_empty_cables=True):
+                         cut_loose_ends=True, remove_empty_cables=True,
+                         remove_duplicates=True, epsilon=1e-8):
     """Create a cable network from two sets of orthogonal streamlines built
     on a triangulated surface mesh. Each vertex of the cable network is the 
     intersection between two orthogonal streamlines.
 
     Args:
         face_normals (nt-by-3 float64 array): vector normal to each of the nt 
-            triangles of the surface (does not need to be unit vectors)
+            triangles of the surface computed as the cross-product of edge 
+            vectors (can be computed using the function 'tri_normals')
         lines1 (list of n-by-3 int32 arrays): for each streamline in the 
             longitudinal direction, the array represents a list of 
             n consecutive vertices, each lying on an edge of the triangulated 
@@ -29,6 +31,9 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
             (default: True)
         remove_empty_cables (bool): remove cables of length 0 or 1
             (default: True)
+        remove_duplicates (bool): handles the case where the intersection is 
+            exactly on an edge of a triangle (default: True)
+        epsilon (float): tolerance for 'remove_duplicates' (default: 1e-8)
     
     Returns:
         cables (int array): concatenation of arrays of vertex indices, each 
@@ -37,9 +42,9 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
         cables_len (int array): length of each cable, such that 
             sum(cables_len) == cables.size
         shape (tuple): number of longitudinal and transverse cables
-        ver (nv-by-3 array): gives the vertex 3D positions
-        idtri (int vector of size nv): gives the triangle index in which 
-            each vertex lies
+        ver (nv-by-3 array): vertex 3D positions
+        idtri (int vector of size nv): triangle index in which each vertex 
+            lies
         sign (uint8 vector of size nv): gives 1 of the cross product of the 
             tangent vectors of the intersecting streamlines is in the same
             direction as the vector normal to the surface, and 0 otherwise
@@ -47,7 +52,25 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
     return find_intersections(face_normals, lines1, faces1, lines2, faces2,
                               cut_loose_ends=cut_loose_ends, 
-                              remove_empty_cables=remove_empty_cables)
+                              remove_empty_cables=remove_empty_cables,
+                              remove_duplicates=remove_duplicates,
+                              epsilon=epsilon)
+
+#-----------------------------------------------------------------------------
+def tri_normals(vertices, triangles):
+    """Compute normal vectors for 'create_cable_network'
+
+    Args:
+        vertices (nv-by-3 float array): vertex position
+        triangles (nt-by-3 int array): vertex indices of triangles
+    
+    Returns:
+        nt-bt-3 float array: normal vectors (non-normalized)
+    """
+    P = vertices[triangles[:, 0], :]
+    u = vertices[triangles[:, 1], :] - P
+    v = vertices[triangles[:, 2], :] - P
+    return np.cross(u, v)
 
 #-----------------------------------------------------------------------------
 def unpack_cables(cables, cables_len):
@@ -60,6 +83,8 @@ def unpack_cables(cables, cables_len):
     Returns:
         list of int array: list of array of vertex indices
     """
+    if cables_len.size == 0:
+        return []
     return np.split(cables, np.cumsum(cables_len)[:-1])
 
 #-----------------------------------------------------------------------------

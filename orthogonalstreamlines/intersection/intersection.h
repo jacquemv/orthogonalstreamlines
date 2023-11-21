@@ -20,6 +20,7 @@ public:
     void identify_intersections();
     int cut_loose_cable_ends();
     int remove_zero_length_cables();
+    int remove_duplicates(double epsilon);
 
     // export output data
     int get_number_of_vertices();
