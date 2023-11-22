@@ -1,8 +1,16 @@
+from collections import namedtuple
 import numpy as np
 from .runengine import find_intersections
 
 __all__ = ['create_cable_network', 'unpack_cables', 'pack_cables', 
            'edge_lengths', 'tri_normals']
+
+
+CableNetworkOutput = namedtuple('CableNetworkOutput', ['cables', 'cables_len',
+                                'nc_long', 'nc_trans', 'vertices', 
+                                'indices_tri', 'sign', 
+                                'cnt_loose_ends', 'cnt_empty_cables', 
+                                'cnt_duplicates'])
 
 #-----------------------------------------------------------------------------
 def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
@@ -50,11 +58,18 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
             direction as the vector normal to the surface, and 0 otherwise
     """
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
-    return find_intersections(face_normals, lines1, faces1, lines2, faces2,
-                              cut_loose_ends=cut_loose_ends, 
-                              remove_empty_cables=remove_empty_cables,
-                              remove_duplicates=remove_duplicates,
-                              epsilon=epsilon)
+    out = find_intersections(face_normals, lines1, faces1, lines2, faces2,
+                             cut_loose_ends=cut_loose_ends, 
+                             remove_empty_cables=remove_empty_cables,
+                             remove_duplicates=remove_duplicates,
+                             epsilon=epsilon)
+    return CableNetworkOutput(
+        cables=out[0], cables_len=out[1], 
+        nc_long=out[2][0], nc_trans=out[2][0], 
+        vertices=out[3], indices_tri=out[4], sign=out[5],
+        cnt_loose_ends=out[6][0], cnt_empty_cables=out[6][1], 
+        cnt_duplicates=out[6][2]
+    )
 
 #-----------------------------------------------------------------------------
 def tri_normals(vertices, triangles):

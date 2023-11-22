@@ -1,5 +1,6 @@
 #include "streamlinecollection.h"
 #include "algebra.h"
+#include <cstddef>
 
 //-----------------------------------------------------------------------------
 StreamlineCollection::StreamlineCollection(int nb_curves_, int *nb_segments_, 

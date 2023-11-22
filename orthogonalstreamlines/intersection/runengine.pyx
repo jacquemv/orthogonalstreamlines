@@ -88,13 +88,13 @@ def find_intersections(double[:, ::1] face_normals,
 
     # run the code
     engine.identify_intersections()
+    cdef int cnt_loose_cables=0, cnt_empty_cables=0, cnt_duplicates=0
     if cut_loose_ends:
-        engine.cut_loose_cable_ends()
+        cnt_loose_ends = engine.cut_loose_cable_ends()
     if remove_empty_cables:
-        engine.remove_zero_length_cables()
-    
+        cnt_empty_cables = engine.remove_zero_length_cables()
     if remove_duplicates:
-        engine.remove_duplicates(epsilon)
+        cnt_duplicates = engine.remove_duplicates(epsilon)
 
     # return the output
     nv = engine.get_number_of_vertices()
@@ -130,4 +130,5 @@ def find_intersections(double[:, ::1] face_normals,
     cables_memview = cables
     engine.get_cables(&cables_memview[0])
 
-    return cables, cables_len, (nc1, nc2), ver, idtri, sign
+    return (cables, cables_len, (nc1, nc2), ver, idtri, sign, 
+            (cnt_loose_ends, cnt_empty_cables, cnt_duplicates))
