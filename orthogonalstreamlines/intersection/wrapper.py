@@ -44,18 +44,23 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
         epsilon (float): tolerance for 'remove_duplicates' (default: 1e-8)
     
     Returns:
-        cables (int array): concatenation of arrays of vertex indices, each 
-            describing a cable (all longitudinal cables are listed first, 
-            then the transverse cables)
-        cables_len (int array): length of each cable, such that 
-            sum(cables_len) == cables.size
-        shape (tuple): number of longitudinal and transverse cables
-        ver (nv-by-3 array): vertex 3D positions
-        idtri (int vector of size nv): triangle index in which each vertex 
-            lies
-        sign (uint8 vector of size nv): gives 1 of the cross product of the 
-            tangent vectors of the intersecting streamlines is in the same
-            direction as the vector normal to the surface, and 0 otherwise
+        namedtuple with the following fields:
+        - cables (int array): concatenation of arrays of vertex indices, each
+          describing a cable (all longitudinal cables are listed first, then 
+          the transverse cables)
+        - cables_len (int array): length of each cable, such that 
+          sum(cables_len) == cables.size
+        - nc_long (int): number of longitudinal cables
+        - nc_trans (int): number of transverse cables
+        - ver (nv-by-3 array): vertex 3D positions
+        - idtri (int vector of size nv): triangle index in which each vertex 
+          lies
+        - sign (uint8 vector of size nv): gives 1 of the cross product of the 
+          tangent vectors of the intersecting streamlines is in the same
+          direction as the vector normal to the surface, and 0 otherwise
+        - cnt_loose_ends (int): number of nodes removed
+        - cnt_empty_cables (int): number ofcables removed
+        - cnt_duplicates (int): number of duplicate nodes removed
     """
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
     out = find_intersections(face_normals, lines1, faces1, lines2, faces2,
