@@ -10,12 +10,12 @@ from . import triangulation
 
 SPACES = '    '
 UNIT = 'cm'
+RATIO_DX_RADIUS = 1.38
 
 OrthogonalStreamlinesMesh = namedtuple('OrthogonalStreamlinesMesh', [
     'cables', 'nlc', 'ntc', 'dx', 'vertices', 'triangles', 
     'facets', 'boundaries', 'ver_to_orig_tri', 'tri_to_facet',
-    'neighbors', 'sign', 
-    'triangulation_failures', 'random_seed'
+    'neighbors', 'sign', 'info', 'random_seed'
 ])
 
 #-----------------------------------------------------------------------------
@@ -46,6 +46,8 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             generation; there is one seed for longitudinal streamlines and 
             one for transverse streamlines
         verbose (bool): print informations during computations (default: True)
+        unit (str): unit of distance in the input mesh (used only for
+            displaying information); default: 'cm'
     
     Returns:
         namedtuple containing the following fields:
@@ -72,15 +74,15 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             sign (int array of size nv): sign (with respect to the vector 
                 normal to the surface) of the cross product of the 
                 tangent vectors of the streamlines at their intersection
-            random_seed (tuple if int): random seeds used for streamlines 
+            random_seed (tuple of int): random seeds used for streamlines 
                 generation
-            triangulation_failures (list of int arrays): list of facets that
-                could not be triangulated.
-                This occurs typically when the resulting cable mesh is not 
-                connected and the outer boundary of a small connected 
-                component is not simple.
+            info (dict): internal information about the calculations
     """
     UNIT = unit
+    info = {}
+
+    # check geometry
+
     with timer('original surface', verbose):
         topo = surface_topology(triangles)
         if len(topo) != 1:
@@ -96,6 +98,9 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
     if verbose:
         print(SPACES+f'{vertices.shape[0]} vertices, '
               f'{triangles.shape[0]} triangles\n')
+    info['nb_boundaries'] = topo[0].n_boundaries
+
+    # generate longitudinal streamlines
 
     with timer('longitudinal streamlines', verbose):
         if options is None:
@@ -104,33 +109,51 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             options['random_seed'] = random_seed[0]
         mesh.generate_streamlines(dx, direction='long', nb_seeds=nb_seeds, 
                                   options=options)
+    L = mesh.infos_long.lengths
+    info['streamline_info_long'] = mesh.infos_long
+    info['stats_streamlines_long'] = calc_stats(L)
     if verbose:
-        L = mesh.infos_long.lengths
         print(SPACES+f'{L.size} curves')
-        print_stats('length', L, UNIT)
+        print_stats('length', info['stats_streamlines_long'], UNIT)
         print(SPACES+f'random seed: {mesh.infos_long.random_seed}\n')
     
+    # generate transverse streamlines
+
     with timer('transversal streamlines', verbose):
         if random_seed is not None:
             options['random_seed'] = random_seed[1]
         mesh.generate_streamlines(dx, direction='trans', nb_seeds=nb_seeds,
                                   options=options)
+    L = mesh.infos_trans.lengths
+    info['streamline_info_trans'] = mesh.infos_trans
+    info['stats_streamlines_trans'] = calc_stats(L)
     if verbose:
         L = mesh.infos_trans.lengths
         print(SPACES+f'{L.size} curves')
-        print_stats('length', L, UNIT)
+        print_stats('length', info['stats_streamlines_trans'] , UNIT)
         print(SPACES+f'random seed: {mesh.infos_trans.random_seed}\n')
     
+    # compute streamline intersections
+
     with timer('streamline intersections', verbose):
         mesh.create_cable_mesh()
         dx_long, dx_trans = mesh.space_steps()
+    info['stats_dx_long'] = calc_stats(dx_long)
+    info['stats_dx_trans'] = calc_stats(dx_trans)
     if verbose:
         print(SPACES+f'{mesh.cablenet.vertices.shape[0]} vertices')
         print(SPACES+f'{mesh.cablenet.nc_long} long. '+
               f'and {mesh.cablenet.nc_trans} trans. cables')
-        print_stats('dx(long)', dx_long, UNIT, more_space=1)
-        print_stats('dx(trans)', dx_trans, UNIT)
+        print_stats('dx(long)', info['stats_dx_long'] , UNIT, more_space=1)
+        print_stats('dx(trans)', info['stats_dx_trans'] , UNIT)
         print()
+    info['cnt_loose_ends'] = mesh.cablenet.cnt_loose_ends
+    info['cnt_empty_cables'] = mesh.cablenet.cnt_empty_cables
+    info['cnt_duplicates'] = mesh.cablenet.cnt_duplicates
+    info['cnt_isolated_vertices'] = mesh.cablenet.cnt_isolated_vertices
+    info['nb_connected_components'] = mesh.cablenet.nb_connected_components
+
+    # tessellate the cable mesh
 
     with timer('tessellation', verbose):
         mesh.tessellate()
@@ -139,6 +162,9 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
         print(SPACES+f'{len(mesh.facets)} facets')
         print(SPACES+'# of n-gon facets for each n:')
         print(SPACES[:-1], hist, '\n')
+    info['histogram_facets'] = hist
+
+    # triangulate the facets
 
     with timer('triangulation', verbose):
         mesh.triangulate()
@@ -154,6 +180,9 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             print(SPACES+f'{n1} facet triangulation failure{s1}'
                   f' ({n2} non-simple polygon{s2})')
         print()
+    info['triangulation_failure'] = mesh.triangulation_failures
+
+    # process boundaries
 
     with timer('boundaries', verbose):
         facets, boundaries, permutation = tessellation.group_facets_by_size(
@@ -165,6 +194,8 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
     if verbose:
         print(SPACES+f'{mesh.nb_boundaries} boundaries\n')
     
+    # create and output the data structure
+
     return OrthogonalStreamlinesMesh(
         cables=intersection.unpack_cables(mesh.cablenet.cables, 
                                           mesh.cablenet.cables_len),
@@ -179,21 +210,26 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
         tri_to_facet=tri_to_facet,
         neighbors=mesh.vneigh,
         sign=mesh.cablenet.sign,
-        triangulation_failures=mesh.triangulation_failures,
         random_seed=(mesh.infos_long.random_seed, 
-                     mesh.infos_trans.random_seed)
+                     mesh.infos_trans.random_seed),
+        info=info
     )
 
 #-----------------------------------------------------------------------------
-def print_stats(name, x, unit, more_space=0):
-    q = np.percentile(x, [25, 50, 75])
-    spaces = SPACES+' '*len(name)+'  ' + ' ' * more_space
+def calc_stats(x):
+    return dict(min=x.min(), max=x.max(), mean=x.mean(), std=x.std(),
+                quartiles=np.percentile(x, [25, 50, 75]))
+
+#-----------------------------------------------------------------------------
+def print_stats(name, stat, unit, more_space=0):
+    spaces = SPACES + ' ' * len(name) + '  ' + ' ' * more_space
     print(SPACES+name+': ' + ' ' * more_space + 
-          f'mean = {x.mean():.4f}, std = {x.std():.4f} ' + unit)
+          f"mean = {stat['std']:.4f}, std = {stat['std']:.4f} " + unit)
+    q = stat['quartiles']
     print(spaces + 
           f'q1 =   {q[0]:.4f}, med = {q[1]:.4f}, q3 = {q[2]:.4f} ' + unit)
     print(spaces + 
-          f'min =  {x.min():.4f}, max = {x.max():.4f} ' + unit)
+          f"min =  {stat['min']:.4f}, max = {stat['max']:.4f} " + unit)
 
 #-----------------------------------------------------------------------------
 @contextmanager
@@ -221,11 +257,10 @@ class OrthogonalStreamlines:
     #-------------------------------------------------------------------------
     def generate_streamlines(self, dx, direction, nb_seeds=1024, 
                              options=None):
-        factor = 1.34
         if isinstance(dx, (tuple, list)):
-            radius = dx[direction == 'long'] / factor
+            radius = dx[direction == 'long'] / RATIO_DX_RADIUS
         else:
-            radius = dx / factor
+            radius = dx / RATIO_DX_RADIUS
         if options is None:
             options = {}
         
