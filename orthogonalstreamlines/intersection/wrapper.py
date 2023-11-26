@@ -52,7 +52,7 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
           sum(cables_len) == cables.size
         - nc_long (int): number of longitudinal cables
         - nc_trans (int): number of transverse cables
-        - ver (nv-by-3 array): vertex 3D positions
+        - vertices (nv-by-3 array): vertex 3D positions
         - idtri (int vector of size nv): triangle index in which each vertex 
           lies
         - sign (uint8 vector of size nv): gives 1 of the cross product of the 

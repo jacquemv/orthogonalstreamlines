@@ -22,6 +22,16 @@ cdef extern from "intersection.h":
         void get_cables(int* cables)
 
 #-----------------------------------------------------------------------------
+def empty_output():
+    return (np.empty(0, dtype=np.int32), 
+            np.empty(0, dtype=np.int32),
+            (0, 0),
+            np.empty((0, 3), dtype=np.float64),
+            np.empty(0, dtype=np.int32),
+            np.empty(0, dtype=np.uint8),
+            (0, 0, 0))
+
+#-----------------------------------------------------------------------------
 def find_intersections(double[:, ::1] face_normals, 
                        list lines1, list faces1, list lines2, list faces2,
                        int cut_loose_ends=True, int remove_empty_cables=True, 
@@ -46,7 +56,6 @@ def find_intersections(double[:, ::1] face_normals,
         raise ValueError('arguments lines1 and faces1 must be '
                          'two lists of same length')
     if len(lines2) != len(faces2):
-        print('ERROR 2')
         raise ValueError('arguments lines2 and faces2 must be '
                          'two lists of same length')
 
@@ -62,10 +71,14 @@ def find_intersections(double[:, ::1] face_normals,
     
     # create the object 
     nt = face_normals.shape[0]
+    if nt == 0:
+        return empty_output()
     engine.set_normals(nt, &face_normals[0, 0])
 
     # longitudinal streamlines
     nc = len(lines1)
+    if nc == 0:
+        return empty_output()
     nseg1 = np.array([face.size for face in faces1], dtype=np.int32)
     nseg1_memview = nseg1
     lines1_stacked = np.vstack(lines1)
@@ -77,6 +90,8 @@ def find_intersections(double[:, ::1] face_normals,
 
     # transverse streamlines
     nc = len(lines2)
+    if nc == 0:
+        return empty_output()
     nseg2 = np.array([face.size for face in faces2], dtype=np.int32)
     nseg2_memview = nseg2
     lines2_stacked = np.vstack(lines2)
@@ -88,7 +103,7 @@ def find_intersections(double[:, ::1] face_normals,
 
     # run the code
     engine.identify_intersections()
-    cdef int cnt_loose_cables=0, cnt_empty_cables=0, cnt_duplicates=0
+    cdef int cnt_loose_ends=0, cnt_empty_cables=0, cnt_duplicates=0
     if cut_loose_ends:
         cnt_loose_ends = engine.cut_loose_cable_ends()
     if remove_empty_cables:
@@ -99,12 +114,7 @@ def find_intersections(double[:, ::1] face_normals,
     # return the output
     nv = engine.get_number_of_vertices()
     if nv == 0:
-        return (np.empty(0, dtype=np.int32), 
-                np.empty(0, dtype=np.int32),
-                (0, 0),
-                np.empty((0, 3), dtype=np.float64),
-                np.empty(0, dtype=np.int32),
-                np.empty(0, dtype=np.uint8))
+        return empty_output()
     
     ver = np.empty((nv, 3), dtype=np.float64)
     ver_memview = ver
