@@ -20,18 +20,26 @@ if platform.system() == 'Windows':
 else:
     compiler_args = ['-fopenmp', '-Ofast']
     linker_args = ['-fopenmp']
-    
-ext = Extension(SRC_DIR + ".intersection.runengine",
-                sources=[SRC_DIR + "/intersection/intersection.cpp", 
-                         SRC_DIR + "/intersection/runengine.pyx"],
-                libraries=[],
-                extra_compile_args=compiler_args,
-                extra_link_args=linker_args,
-                language="c++",
-                include_dirs=[SRC_DIR, SRC_DIR + "/common"])
-ext.cython_directives = {'language_level': "3"}
 
-EXTENSIONS = [ext]
+FILES = {
+    "intersection.runengine": ("/intersection/runengine.pyx",
+                               "/intersection/intersection.cpp"),
+    "tessellation.tessellation": ("/tessellation/tessellation.pyx",),
+    "triangulation.triangulation": ("/triangulation/triangulation.pyx",
+                                    "/triangulation/triangulatefacets.cpp")
+}
+EXTENSIONS = []
+for target, src_files in FILES.items():
+    ext = Extension(SRC_DIR + "." + target,
+        sources=[SRC_DIR + file for file in src_files],
+        libraries=[],
+        extra_compile_args=compiler_args,
+        extra_link_args=linker_args,
+        language="c++",
+        include_dirs=[SRC_DIR, SRC_DIR + "/common"]
+    )
+    ext.cython_directives = {'language_level': "3"}
+    EXTENSIONS.append(ext)
 
 setup(install_requires=REQUIRES,
       packages=PACKAGES,
