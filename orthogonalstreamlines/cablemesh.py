@@ -1,0 +1,278 @@
+import time
+from contextlib import contextmanager
+from collections import namedtuple, Counter
+import numpy as np
+from surfacetopology import surface_topology
+from evenlyspacedstreamlines import evenly_spaced_streamlines
+from . import intersection
+from . import tessellation
+from . import triangulation
+
+SPACES = '    '
+UNIT = 'cm'
+
+OrthogonalStreamlinesMesh = namedtuple('OrthogonalStreamlinesMesh', [
+    'cables', 'nlc', 'ntc', 'dx', 'vertices', 'triangles', 
+    'facets', 'boundaries', 'ver_to_orig_tri', 'tri_to_facet',
+    'neighbors', 'sign', 
+    'triangulation_failures', 'random_seed'
+])
+
+#-----------------------------------------------------------------------------
+def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
+                                       nb_seeds=1024, options=None,
+                                       random_seed=None, verbose=True, 
+                                       unit='cm'):
+    """Generate an interconnected cable mesh from evenly spaced orthogonal 
+    streamlines
+
+    Args:
+        vertices (nv-by-3 array): x, y, z coordinates of the nv vertices 
+            of type numpy.float64
+        triangles (nt-by-3 int array): indices of the vertices of the nt 
+            triangles of type numpy.int32
+        orient (bt-by-3 array): orientation vector in each triangle
+        dx (float or tuple): target mesh resolution; if dx is a tuple, 
+            resolution is different in the longitudinal and transverse 
+            direction
+        nb_seeds (int): number of seed points for streamline generation
+            (default: 1024)
+        nb_boundaries (int): number of boundaries (holes) in the surface;
+            default = 2 - Euler characteristic, which means that the genus
+            is assumed to be zero (it wouldn't work for a torus for example)
+        options (dict): additional arguments passed to the function
+            evenly_spaced_streamlines
+        random_seed (tuple of int): set random seed for streameline 
+            generation; there is one seed for longitudinal streamlines and 
+            one for transverse streamlines
+        verbose (bool): print informations during computations (default: True)
+    
+    Returns:
+        namedtuple containing the following fields:
+            cables (list of int arrays): each cable is represented by an 
+                array of vertex indices; longitudinal cables are listed first
+            nlc (int): number of longitudinal cables
+            ntc (int): number of transverse cables
+            dx (float array of size ne): length of each edge
+            vertices (nv-by-3 float array): cable vertex positions
+            triangles (nt-by-3 int array): new triangulation of the surface
+            facets (list of int arrays): facets[n] is a k-by-n array whose 
+                k rows are facets with n sides
+            boundaries (list of int arrays): boundaries[n] is the array of
+                vertex indices of the n-th boundary or hole
+            ver_to_orig_tri (int array of size nv): maps cable vertices to 
+                triangle indices from the original triangulated surface
+            tri_to_facet (int array of size nt): maps triangle indices to
+                faet indices
+            neighbors (nv-by-4 int array): indices of up to 4 neighboring 
+                vertices of each vertex; the first two columns are for 
+                neighbors in the longitudinal direction, the next two columns
+                for the transverse direction; index is -1 where there is no 
+                neighbor
+            sign (int array of size nv): sign (with respect to the vector 
+                normal to the surface) of the cross product of the 
+                tangent vectors of the streamlines at their intersection
+            random_seed (tuple if int): random seeds used for streamlines 
+                generation
+            triangulation_failures (list of int arrays): list of facets that
+                could not be triangulated.
+                This occurs typically when the resulting cable mesh is not 
+                connected and the outer boundary of a small connected 
+                component is not simple.
+    """
+    UNIT = unit
+    with timer('original surface', verbose):
+        topo = surface_topology(triangles)
+        if any(not comp.manifold for comp in topo):
+            raise ValueError('The triangular mesh is not a manifold')
+        if any(not comp.oriented for comp in topo):
+            raise ValueError('The triangular mesh is not consistently '+
+                             'oriented')
+        nb_boundaries = sum(comp.n_boundaries for comp in topo)
+        mesh = OrthogonalStreamlines(vertices, triangles, orientation, 
+                                     nb_boundaries)
+    if verbose:
+        print(SPACES+f'{vertices.shape[0]} vertices, '
+              f'{triangles.shape[0]} triangles\n')
+
+    with timer('longitudinal streamlines', verbose):
+        if options is None:
+            options= {} 
+        if random_seed is not None:
+            options['random_seed'] = random_seed[0]
+        mesh.generate_streamlines(dx, direction='long', nb_seeds=nb_seeds, 
+                                  options=options)
+    if verbose:
+        L = mesh.infos_long.lengths
+        print(SPACES+f'{L.size} curves')
+        print_stats('length', L, UNIT)
+        print(SPACES+f'random seed: {mesh.infos_long.random_seed}\n')
+    
+    with timer('transversal streamlines', verbose):
+        if random_seed is not None:
+            options['random_seed'] = random_seed[1]
+        mesh.generate_streamlines(dx, direction='trans', nb_seeds=nb_seeds,
+                                  options=options)
+    if verbose:
+        L = mesh.infos_trans.lengths
+        print(SPACES+f'{L.size} curves')
+        print_stats('length', L, UNIT)
+        print(SPACES+f'random seed: {mesh.infos_trans.random_seed}\n')
+    
+    with timer('streamline intersections', verbose):
+        mesh.create_cable_mesh()
+        dx_long, dx_trans = mesh.space_steps()
+    if verbose:
+        print(SPACES+f'{mesh.cablenet.vertices.shape[0]} vertices')
+        print(SPACES+f'{mesh.cablenet.nc_long} long. '+
+              f'and {mesh.cablenet.nc_trans} trans. cables')
+        print_stats('dx(long)', dx_long, UNIT, more_space=1)
+        print_stats('dx(trans)', dx_trans, UNIT)
+        print()
+
+    with timer('tessellation', verbose):
+        mesh.tessellate()
+        hist = mesh.histogram_facets()
+    if verbose:
+        print(SPACES+f'{len(mesh.facets)} facets')
+        print(SPACES+'# of n-gon facets for each n:')
+        print(SPACES[:-1], hist, '\n')
+
+    with timer('triangulation', verbose):
+        mesh.triangulate()
+    if verbose:
+        print(SPACES+f'{mesh.triangles.shape[0]} triangles')
+        failed_loops = mesh.triangulation_failures
+        if failed_loops:
+            count = 0
+            for loop in failed_loops:
+                count += len(np.unique(loop)) < len(loop)
+            n1, n2 = len(failed_loops), count
+            s1, s2 = 's' * (n1>1), 's' * (n2>1)
+            print(SPACES+f'{n1} facet triangulation failure{s1}'
+                  f' ({n2} non-simple polygon{s2})')
+        print()
+
+    with timer('boundaries', verbose):
+        facets, boundaries, permutation = tessellation.group_facets_by_size(
+            mesh.facets, mesh.cutoff)
+        assert np.unique(permutation).size == permutation.size
+        inv_permutation = np.zeros_like(permutation)
+        inv_permutation[permutation] = np.arange(permutation.size)
+        tri_to_facet = inv_permutation[mesh.facetid]
+    if verbose:
+        print(SPACES+f'{mesh.nb_boundaries} boundaries\n')
+    
+    return OrthogonalStreamlinesMesh(
+        cables=intersection.unpack_cables(mesh.cablenet.cables, 
+                                          mesh.cablenet.cables_len),
+        nlc=mesh.cablenet.nc_long, 
+        ntc=mesh.cablenet.nc_trans,
+        dx=np.concatenate((dx_long, dx_trans)),
+        vertices=mesh.cablenet.vertices,
+        triangles=mesh.triangles,
+        facets=facets,
+        boundaries=boundaries,
+        ver_to_orig_tri=mesh.cablenet.indices_tri,
+        tri_to_facet=tri_to_facet,
+        neighbors=mesh.vneigh,
+        sign=mesh.cablenet.sign,
+        triangulation_failures=mesh.triangulation_failures,
+        random_seed=(mesh.infos_long.random_seed, 
+                     mesh.infos_trans.random_seed)
+    )
+
+#-----------------------------------------------------------------------------
+def print_stats(name, x, unit, more_space=0):
+    q = np.percentile(x, [25, 50, 75])
+    spaces = SPACES+' '*len(name)+'  ' + ' ' * more_space
+    print(SPACES+name+': ' + ' ' * more_space + 
+          f'mean = {x.mean():.4f}, std = {x.std():.4f} ' + unit)
+    print(spaces + 
+          f'q1 =   {q[0]:.4f}, med = {q[1]:.4f}, q3 = {q[2]:.4f} ' + unit)
+    print(spaces + 
+          f'min =  {x.min():.4f}, max = {x.max():.4f} ' + unit)
+
+#-----------------------------------------------------------------------------
+@contextmanager
+def timer(block_name, verbose=True):
+    if not verbose:
+        yield
+        return
+    s = block_name + ': ' + '-' * (68 - len(block_name)) + ' '
+    print(s, end='')
+    t0 = time.perf_counter()
+    yield
+    print(f'{time.perf_counter() - t0:.3f} s')
+
+#-----------------------------------------------------------------------------
+OrientedSurface = namedtuple('OrientedSurface', ['ver', 'tri', 'orient'])
+
+#-----------------------------------------------------------------------------
+class OrthogonalStreamlines:
+
+    def __init__(self, vertices, triangles, orientation, nb_boundaries):
+        self.trisurf = OrientedSurface(ver=vertices, tri=triangles, 
+                                       orient=orientation)
+        self.nb_boundaries = nb_boundaries
+    
+    #-------------------------------------------------------------------------
+    def generate_streamlines(self, dx, direction, nb_seeds=1024, 
+                             options=None):
+        factor = 1.34
+        if isinstance(dx, (tuple, list)):
+            radius = dx[direction == 'long'] / factor
+        else:
+            radius = dx / factor
+        if options is None:
+            options = {}
+        
+        output = evenly_spaced_streamlines(
+            self.trisurf.ver, self.trisurf.tri, self.trisurf.orient, 
+            radius=radius, orthogonal=(direction != 'long'),
+            seed_points=nb_seeds, **options
+        )
+        if direction == 'long':
+            self.lines_long, self.faces_long, self.infos_long = output
+        else:
+            self.lines_trans, self.faces_trans, self.infos_trans = output
+        
+    #-------------------------------------------------------------------------
+    def create_cable_mesh(self):
+        normals = intersection.tri_normals(self.trisurf.ver, self.trisurf.tri)
+        self.cablenet = intersection.create_cable_network(
+            normals,
+            self.lines_long, self.faces_long,
+            self.lines_trans, self.faces_trans
+        )
+    
+    #-------------------------------------------------------------------------
+    def space_steps(self):
+        dx = np.linalg.norm(self.cablenet.vertices[self.cablenet.cables[1:]]
+                           -self.cablenet.vertices[self.cablenet.cables[:-1]], 
+                            axis=-1)
+        cable_end = np.cumsum(self.cablenet.cables_len)
+        dx = np.delete(dx, cable_end[:-1]-1)
+        sep = np.sum(self.cablenet.cables_len[:self.cablenet.nc_long]-1)
+        return dx[:sep], dx[sep:]
+    
+    #-------------------------------------------------------------------------
+    def tessellate(self):
+        self.facets, self.vneigh = tessellation.tessellate(
+            self.cablenet.cables, self.cablenet.cables_len, 
+            self.cablenet.nc_long, self.cablenet.sign, 
+            return_moves=True, return_neigh=True)
+    
+    #-------------------------------------------------------------------------
+    def triangulate(self):
+        largest, self.cutoff = tessellation.find_largest_facets(
+            self.facets, self.nb_boundaries)
+        self.triangles, self.facetid, self.triangulation_failures = \
+            triangulation.triangulate_facets(self.cablenet.vertices, 
+                                             self.facets, self.cutoff)
+    
+    #-------------------------------------------------------------------------
+    def histogram_facets(self):
+        sizes = tessellation.facet_size(self.facets)
+        S = dict(Counter(sizes))
+        return {n: S[n] for n in sorted(S.keys())[:-self.nb_boundaries]}
