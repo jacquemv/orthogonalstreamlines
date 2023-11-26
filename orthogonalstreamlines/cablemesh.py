@@ -83,14 +83,16 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
     UNIT = unit
     with timer('original surface', verbose):
         topo = surface_topology(triangles)
-        if any(not comp.manifold for comp in topo):
+        if len(topo) != 1:
+            raise ValueError('The triangular mesh must have one single '+
+                             f'connected component ({len(topo)} identified)')
+        if not topo[0].manifold:
             raise ValueError('The triangular mesh is not a manifold')
-        if any(not comp.oriented for comp in topo):
+        if not topo[0].oriented:
             raise ValueError('The triangular mesh is not consistently '+
                              'oriented')
-        nb_boundaries = sum(comp.n_boundaries for comp in topo)
         mesh = OrthogonalStreamlines(vertices, triangles, orientation, 
-                                     nb_boundaries)
+                                     topo[0].n_boundaries)
     if verbose:
         print(SPACES+f'{vertices.shape[0]} vertices, '
               f'{triangles.shape[0]} triangles\n')

@@ -11,6 +11,8 @@ cdef extern from "intersection.h":
         int cut_loose_cable_ends()
         int remove_zero_length_cables()
         int remove_duplicates(double epsilon)
+        int n_comp
+        int remove_isolated_regions()
 
         int get_number_of_vertices()
         void get_vertices(double* vertices)
@@ -29,13 +31,14 @@ def empty_output():
             np.empty((0, 3), dtype=np.float64),
             np.empty(0, dtype=np.int32),
             np.empty(0, dtype=np.uint8),
-            (0, 0, 0))
+            (0, 0, 0, 0, 0))
 
 #-----------------------------------------------------------------------------
 def find_intersections(double[:, ::1] face_normals, 
                        list lines1, list faces1, list lines2, list faces2,
                        int cut_loose_ends=True, int remove_empty_cables=True, 
-                       int remove_duplicates=True, double epsilon=1e-8):
+                       int remove_duplicates=True, double epsilon=1e-8,
+                       int remove_isolated_regions=True):
     cdef:
         int nt, nv, i, nc, nc1, nc2, size
         Intersection engine
@@ -104,12 +107,16 @@ def find_intersections(double[:, ::1] face_normals,
     # run the code
     engine.identify_intersections()
     cdef int cnt_loose_ends=0, cnt_empty_cables=0, cnt_duplicates=0
+    cdef int cnt_isolated_vertices=0, n_comp = 1
     if cut_loose_ends:
         cnt_loose_ends = engine.cut_loose_cable_ends()
     if remove_empty_cables:
         cnt_empty_cables = engine.remove_zero_length_cables()
     if remove_duplicates:
         cnt_duplicates = engine.remove_duplicates(epsilon)
+    if remove_isolated_regions:
+        cnt_isolated_vertices = engine.remove_isolated_regions()
+        n_comp = engine.n_comp
 
     # return the output
     nv = engine.get_number_of_vertices()
@@ -141,4 +148,5 @@ def find_intersections(double[:, ::1] face_normals,
     engine.get_cables(&cables_memview[0])
 
     return (cables, cables_len, (nc1, nc2), ver, idtri, sign, 
-            (cnt_loose_ends, cnt_empty_cables, cnt_duplicates))
+            (cnt_loose_ends, cnt_empty_cables, cnt_duplicates,
+             cnt_isolated_vertices, n_comp))

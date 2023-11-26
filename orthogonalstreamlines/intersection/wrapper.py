@@ -10,12 +10,14 @@ CableNetworkOutput = namedtuple('CableNetworkOutput', ['cables', 'cables_len',
                                 'nc_long', 'nc_trans', 'vertices', 
                                 'indices_tri', 'sign', 
                                 'cnt_loose_ends', 'cnt_empty_cables', 
-                                'cnt_duplicates'])
+                                'cnt_duplicates', 'cnt_isolated_vertices',
+                                'nb_connected_components'])
 
 #-----------------------------------------------------------------------------
 def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
                          cut_loose_ends=True, remove_empty_cables=True,
-                         remove_duplicates=True, epsilon=1e-8):
+                         remove_duplicates=True, epsilon=1e-8,
+                         remove_isolated_regions=True):
     """Create a cable network from two sets of orthogonal streamlines built
     on a triangulated surface mesh. Each vertex of the cable network is the 
     intersection between two orthogonal streamlines.
@@ -42,6 +44,9 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
         remove_duplicates (bool): handles the case where the intersection is 
             exactly on an edge of a triangle (default: True)
         epsilon (float): tolerance for 'remove_duplicates' (default: 1e-8)
+        remove_isolated_regions (bool): find connected components and remove
+            vertices from all but the largest connnected components
+            (default: True)
     
     Returns:
         namedtuple with the following fields:
@@ -59,21 +64,27 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
           tangent vectors of the intersecting streamlines is in the same
           direction as the vector normal to the surface, and 0 otherwise
         - cnt_loose_ends (int): number of nodes removed
-        - cnt_empty_cables (int): number ofcables removed
+        - cnt_empty_cables (int): number of cables removed
         - cnt_duplicates (int): number of duplicate nodes removed
+        - cnt_isolated_vertices (int): number of isolated nodes from small 
+          connected components that were removed
+        - nb_connected_components (int): number of connected components before
+          removing the small ones
     """
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
     out = find_intersections(face_normals, lines1, faces1, lines2, faces2,
                              cut_loose_ends=cut_loose_ends, 
                              remove_empty_cables=remove_empty_cables,
                              remove_duplicates=remove_duplicates,
-                             epsilon=epsilon)
+                             epsilon=epsilon,
+                             remove_isolated_regions=remove_isolated_regions)
     return CableNetworkOutput(
         cables=out[0], cables_len=out[1], 
         nc_long=out[2][0], nc_trans=out[2][0], 
         vertices=out[3], indices_tri=out[4], sign=out[5],
         cnt_loose_ends=out[6][0], cnt_empty_cables=out[6][1], 
-        cnt_duplicates=out[6][2]
+        cnt_duplicates=out[6][2], cnt_isolated_vertices=out[6][3], 
+        nb_connected_components=out[6][4]
     )
 
 #-----------------------------------------------------------------------------

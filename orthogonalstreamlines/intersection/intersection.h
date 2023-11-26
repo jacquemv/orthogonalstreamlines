@@ -21,6 +21,7 @@ public:
     int cut_loose_cable_ends();
     int remove_zero_length_cables();
     int remove_duplicates(double epsilon);
+    int remove_isolated_regions();
 
     // export output data
     int get_number_of_vertices();
@@ -48,6 +49,7 @@ public:
     int* buffer;
     double **_ver1_ptr, **_ver2_ptr;
     int **_tri1_ptr, **_tri2_ptr;
+    int n_comp;
 
     void allocate(); // called by identify_intersections
 

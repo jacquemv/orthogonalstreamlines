@@ -5,6 +5,7 @@
 #include "intersection.h"
 #include "algebra.cpp"
 #include "streamlinecollection.cpp"
+#include "unionfind.cpp"
 
 //-----------------------------------------------------------------------------
 Intersection::Intersection()
@@ -482,3 +483,55 @@ int Intersection::remove_zero_length_cables()
     }
     return cnt;
  }
+
+//-----------------------------------------------------------------------------
+int most_freq_val(int n, int *x, int bins)
+// negative values are discarded
+{
+    int* count = new int [bins];
+    for (int i=0;i<bins;i++)
+        count[i] = 0;
+    for (int i=0;i<n;i++)
+        if (x[i] >= 0) count[x[i]]++;
+    int maxcount = 0, argmax = -1;
+    for (int i=0;i<bins;i++)
+        if (count[i] > maxcount) {
+            maxcount = count[i];
+            argmax = i;
+        }
+    delete [] count;
+    return argmax;
+}
+
+//-----------------------------------------------------------------------------
+int Intersection::remove_isolated_regions()
+{
+    UnionFind UF;
+    UF.allocate(nv);
+    int *label = new int [nv];
+    UF.reset(label);
+
+    for (int n=0;n<nc;n++)
+        for (int i = cables_split[n]; i < cables_split[n+1]-1; i++)
+            UF.unite(cables[i], cables[i+1]);
+    
+    int nb_removed = 0;
+    n_comp = UF.assign_label();
+    if (n_comp > 1) {
+        // find the biggest connection region
+        int main_comp = most_freq_val(nv, label, n_comp);
+        // count nodes in isolated regions
+        for (int i=0;i<nv;i++)
+            nb_removed += (label[i] != main_comp);
+        // remove these nodes
+        for (int i=0;i<cables_split[nc];i++)
+            if (label[cables[i]] != main_comp) {
+                cables[i] = -1;
+            }
+        remove_tagged_cable_nodes();
+        remove_isolated_vertices();
+    }
+
+    delete [] label;
+    return nb_removed;
+}
