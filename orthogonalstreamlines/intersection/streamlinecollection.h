@@ -12,6 +12,7 @@ public:
     ~StreamlineCollection();
 
     void initialize(int nb_curves_, int *nb_segments_, double** vertices_, int** triangle_idx_);
+    void initialize(int nb_curves_, int *nb_segments_, double* vertices_, int* triangle_id_);
 
     inline double* get_segment_position(int idcurv, int idseg);
     inline int get_triangle_id(int idcurv, int idseg);
@@ -26,6 +27,8 @@ public:
     int** bin_idseg;
     int max_bin_size;
     double* buffer;
+    double** ver_ptr;
+    int** tri_ptr;
 };
 
 #endif

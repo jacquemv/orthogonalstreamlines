@@ -17,6 +17,8 @@ StreamlineCollection::StreamlineCollection()
     bin_idcurv = NULL;
     bin_idseg = NULL;
     buffer = NULL;
+    ver_ptr = NULL;
+    tri_ptr = NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -30,6 +32,8 @@ StreamlineCollection::~StreamlineCollection()
     delete [] bin_idcurv;
     delete [] bin_idseg;
     delete [] buffer;
+    delete [] ver_ptr;
+    delete [] tri_ptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -83,6 +87,21 @@ void StreamlineCollection::initialize(int nb_curves_, int *nb_segments_,
         if (bin_size[i] > max_bin_size)
             max_bin_size = bin_size[i];
     buffer = new double [max_bin_size];
+}
+
+//-----------------------------------------------------------------------------
+void StreamlineCollection::initialize(int nb_curves_, int *nb_segments_, 
+                                    double* vertices_, int* triangle_id_)
+{
+    int j = 0;
+    ver_ptr = new double* [nb_curves_];
+    tri_ptr = new int* [nb_curves_];
+    for (int i=0;i<nb_curves_;i++) {
+        ver_ptr[i] = vertices_ + 3*(i+j);
+        tri_ptr[i] = triangle_id_ + j;
+        j += nb_segments_[i];
+    }
+    initialize(nb_curves_, nb_segments_, ver_ptr, tri_ptr);
 }
 
 //-----------------------------------------------------------------------------
