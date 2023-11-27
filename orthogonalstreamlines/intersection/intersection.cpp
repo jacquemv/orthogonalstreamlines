@@ -202,24 +202,25 @@ int Intersection::dict_find(int idtri, int a, int b, int c, int d)
 
 //-----------------------------------------------------------------------------
 int segments_intersect(double* A, double* B, double* C, double* D,
-                       double* X, double* n)
-// returns the number of intersections (infinity -> 2)
+                       double* X, double* n, double* normal)
+// returns the number of intersections
 // n = triangle normal vector
 {
     double r[3] = {B[0]-A[0], B[1]-A[1], B[2]-A[2]};
     double s[3] = {D[0]-C[0], D[1]-C[1], D[2]-C[2]};
-    double pq[3] = {C[0]-A[0], C[1]-A[1], C[2]-A[2]};
-    double y[3], n2, u, v;
+    vrmcomp(r, normal);
+    vrmcomp(s, normal); // project on the triangle because of numerical errors
+
     vcross(n, r, s);
-    n2 = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
-    if (n2 == 0)
+    double n2 = vnorm2(n);
+    if (n2 <= 0)
         return 0;
-    vcross(y, pq, s);
-    u = (y[0]*n[0] + y[1]*n[1] + y[2]*n[2])/n2;
+    
+    double pq[3] = {C[0]-A[0], C[1]-A[1], C[2]-A[2]};
+    double u = vdet(n, pq, s) / n2;
     if ((u < 0) || (u > 1))
         return 0;
-    vcross(y, pq, r);
-    v = (y[0]*n[0] + y[1]*n[1] + y[2]*n[2])/n2;
+    double v = vdet(n, pq, r) / n2;
     if ((v < 0) || (v > 1))
         return 0;
     X[0] = A[0]+u*r[0];
@@ -244,17 +245,18 @@ void Intersection::identify_intersections()
             double* seg1 = set1.get_segment_position(i, j);
             int n, *idcurv, *idseg;
             set2.get_segment_ordered_list(idtri, seg1, n, idcurv, idseg);
+            double* normal = face_normals+3*idtri;
             for (int k=0;k<n;k++) {
                 double* seg2 = set2.get_segment_position(idcurv[k], idseg[k]);
                 double cross[3], x[3];
                 int ni;
-                ni = segments_intersect(seg1, seg1+3, seg2, seg2+3, x, cross);
+                ni = segments_intersect(seg1, seg1+3, seg2, seg2+3, x, cross, normal);
                 if (ni == 1) {
                     ver[3*nv] = x[0];
                     ver[3*nv+1] = x[1];
                     ver[3*nv+2] = x[2];
                     ver_idtri[nv] = idtri;
-                    ver_sign[nv] = vdot(cross, face_normals+3*idtri) > 0;
+                    ver_sign[nv] = vdot(cross, normal) > 0;
                     dict_add(idtri, i, j, idcurv[k], idseg[k], ne);
                     cables[ne] = ne;
                     ne++;
@@ -355,16 +357,19 @@ int Intersection::remove_tagged_cable_nodes()
 
 //-----------------------------------------------------------------------------
 int Intersection::remove_isolated_vertices()
+// isolated = in none of the cables or in one/two cable(s) with a single node
+// there may still be cables of length 0 or 1 at the end
 {
     int* nb_neigh = buffer;
     int* new_idx = buffer; // Beware! new_idx overwrites nb_neigh (but it's OK)
     count_neighbors(nb_neigh);
+    #define INVALID_INDEX 999999999
 
     // remove vertices
     int j = 0;
     for (int i=0;i<nv;i++) {
         if (nb_neigh[i] == 0) {
-            new_idx[i] = 999999999;
+            new_idx[i] = INVALID_INDEX;
         } else {
             ver[3*j] = ver[3*i];
             ver[3*j+1] = ver[3*i+1];
@@ -378,9 +383,25 @@ int Intersection::remove_isolated_vertices()
     int cnt = nv - j;
     nv = j;
 
+    // remove cables of length 1
+    int total_len = cables_split[nc];
+    for (int n=nc;n>0;n--) {
+        int len = cables_split[n] - cables_split[n-1];
+        if (len == 1) {
+            if (new_idx[cables_split[n-1]] == INVALID_INDEX)
+                len = 0;
+        }
+        cables_split[n] = len;
+    }
+    for (int n=1;n<=nc;n++)
+        cables_split[n] += cables_split[n-1]; 
+    
     // renumber vertices
-    for (int i=0;i<cables_split[nc];i++) {
-        cables[i] = new_idx[cables[i]];
+    j = 0;
+    for (int i=0;i<total_len;i++) {
+        int idx = new_idx[cables[i]];
+        cables[j] = idx;
+        j += idx != INVALID_INDEX;
     }
     return cnt;
 }
@@ -392,6 +413,7 @@ int Intersection::cut_loose_cable_ends()
     int* nb_neigh = buffer;
 
     while (cnt != 0) {
+        printf("C0");
         count_neighbors(nb_neigh);
 
         // tag loose cable ends
@@ -432,10 +454,13 @@ int Intersection::cut_loose_cable_ends()
                 }
             }
         }
+        printf("C1");
         remove_tagged_cable_nodes();
         total_cnt += cnt;
     }
+    printf("C2");
     remove_isolated_vertices();
+    printf("C3");
     return total_cnt;
 }
 
@@ -468,7 +493,7 @@ int Intersection::remove_zero_length_cables()
         for (int i = cables_split[n]; i < cables_split[n+1]-1; i++) {
             double dx[3];
             vdiff(dx, ver+3*cables[i], ver+3*cables[i+1]);
-            if (vnorm2(dx) < eps2) {
+            if (vnorm2(dx) <= eps2) {
                 if (cables[i] < cables[i+1]) // remove the largest index
                     cables[i+1] = -1;
                 else
@@ -520,18 +545,29 @@ int Intersection::remove_isolated_regions()
     if (n_comp > 1) {
         // find the biggest connection region
         int main_comp = most_freq_val(nv, label, n_comp);
+
         // count nodes in isolated regions
         for (int i=0;i<nv;i++)
             nb_removed += (label[i] != main_comp);
         // remove these nodes
-        for (int i=0;i<cables_split[nc];i++)
+        for (int i=0;i<cables_split[nc];i++) {
             if (label[cables[i]] != main_comp) {
-                cables[i] = -1;
+                //cables[i] = -1;
             }
+        }
+        //printf("B9\n");
         remove_tagged_cable_nodes();
         remove_isolated_vertices();
     }
 
     delete [] label;
     return nb_removed;
+}
+
+//-----------------------------------------------------------------------------
+bool Intersection::check_cable_indices()
+{
+    for (int i=0;i<cables_split[nc];i++)
+        if ((cables[i] < 0) || (cables[i] >= nv)) return 0;
+    return 1;
 }

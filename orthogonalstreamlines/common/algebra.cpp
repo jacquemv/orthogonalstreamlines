@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include "algebra.h"
 
 //-----------------------------------------------------------------------------
 inline void vcopy(double* y, double* x)
@@ -25,6 +26,15 @@ inline void vcross(double* y, double* r, double* s)
     y[1] = r[2]*s[0]-r[0]*s[2];
     y[2] = r[0]*s[1]-r[1]*s[0];
 }
+
+//-----------------------------------------------------------------------------
+inline double vdet(double* x, double* y, double* z)
+{
+    return   z[0] * (x[1]*y[2]-x[2]*y[1])
+           + z[1] * (x[2]*y[0]-x[0]*y[2])
+           + z[2] * (x[0]*y[1]-x[1]*y[0]);
+}
+
 
 //-----------------------------------------------------------------------------
 inline double vdot(double* x, double* y)

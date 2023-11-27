@@ -192,15 +192,20 @@ def find_neighbors(int[::1] cables_idx, int[::1] cable_len, int cable_sep,
     nv = sign.size
     for i in range(nc):
         nhe += max(2 * cable_len[i] - 2, 0)
-    vneigh = np.full((nv, 4), -1, dtype=np.int32)
-    heneigh = np.full((nhe, 3), -1, dtype=np.int32)
-    halfedges = np.full((nhe, 2), -1, dtype=np.int32)
+    vneigh_arr = np.full((nv, 4), -1, dtype=np.int32)
+    heneigh_arr = np.full((nhe, 3), -1, dtype=np.int32)
+    halfedges_arr = np.full((nhe, 2), -1, dtype=np.int32)
+    vneigh = vneigh_arr
+    heneigh = heneigh_arr
+    halfedges = halfedges_arr
     nexthalfedges = np.full((nv, 4), -1, dtype=np.int32)
     halfedge_cable = np.full(nhe, -1, dtype=np.int32)
 
     for c in range(nc):
         shift = 0 if c < cable_sep else 2
         clen = cable_len[c]
+        if clen == 0:
+            continue
         for i in range(clen-1):
             v1 = cables_idx[j]
             v2 = cables_idx[j+1]
@@ -253,7 +258,7 @@ def find_neighbors(int[::1] cables_idx, int[::1] cable_len, int cable_sep,
             else:
                 heneigh[k, 2] = e # right
     
-    return np.array(vneigh), np.array(halfedges), np.array(heneigh)
+    return vneigh_arr, halfedges_arr, heneigh_arr
 
 #-------------------------------------------------------------------------------
 def identify_facets_and_directions(int[:, ::1] halfedges, int[:, ::1] heneigh):

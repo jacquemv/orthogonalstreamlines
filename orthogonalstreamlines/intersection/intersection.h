@@ -60,6 +60,7 @@ public:
     int remove_tagged_cable_nodes();
     int remove_isolated_vertices();
 
+    bool check_cable_indices();
     void print_neighbors_stat(int* nb_neigh);
     void print_cable_length_stat();
 };

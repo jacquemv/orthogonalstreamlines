@@ -5,6 +5,7 @@
 inline void vcopy(double* y, double* x);
 inline void vswap(double* y, double* x);
 inline void vcross(double* y, double* r, double* s);
+inline double vdet(double* x, double* y, double* z);
 inline double vdot(double* x, double* y);
 inline double vnorm2(double* x);
 inline double vdist(double* x, double* y);

@@ -105,18 +105,24 @@ def find_intersections(double[:, ::1] face_normals,
                               &lines2_memview[0, 0], &faces2_memview[0])
 
     # run the code
+    print('A')
     engine.identify_intersections()
     cdef int cnt_loose_ends=0, cnt_empty_cables=0, cnt_duplicates=0
     cdef int cnt_isolated_vertices=0, n_comp = 1
-    if cut_loose_ends:
-        cnt_loose_ends = engine.cut_loose_cable_ends()
-    if remove_empty_cables:
-        cnt_empty_cables = engine.remove_zero_length_cables()
+    print('B')
     if remove_duplicates:
         cnt_duplicates = engine.remove_duplicates(epsilon)
+    print('C')
+    if cut_loose_ends:
+        cnt_loose_ends = engine.cut_loose_cable_ends()
+    print('D')
     if remove_isolated_regions:
         cnt_isolated_vertices = engine.remove_isolated_regions()
         n_comp = engine.n_comp
+    print('E')
+    if remove_empty_cables:
+        cnt_empty_cables = engine.remove_zero_length_cables()
+    print('F')
 
     # return the output
     nv = engine.get_number_of_vertices()
