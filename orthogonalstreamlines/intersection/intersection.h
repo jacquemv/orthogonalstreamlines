@@ -3,6 +3,9 @@
 
 #include "algebra.h"
 #include "streamlinecollection.h"
+#include "cablenetwork.h"
+#include "fixedsizedict.h"
+#include "vertices.h"
 
 class Intersection {
 public:
@@ -10,10 +13,6 @@ public:
     ~Intersection();
 
     void set_normals(int nt_, double* face_normals_);
-    // convenient for C
-    void insert_streamlines(int orientation, int nb_curves, 
-                            int *nb_segments, double** vertices, int** triangle_idx);
-    // convenient for python
     void insert_streamlines(int orientation, int nb_curves, 
                             int *nb_segments, double* vertices, int* triangle_idx);
 
@@ -35,34 +34,17 @@ public:
 
 //private:
     StreamlineCollection set1, set2;
-    double* ver;
-    int* ver_idtri;
-    char* ver_sign;
+    Vertices ver;
     double* face_normals;
-    int nv, nv_max, nt;
-    int nc, nc1, nc2;
-    int* cables;
-    int* cables_split;
-    int** dict_keys;
-    int** dict_values;
-    int* dict_size;
-    int* buffer;
-    double **_ver1_ptr, **_ver2_ptr;
-    int **_tri1_ptr, **_tri2_ptr;
-    int n_comp;
+    int nt;
+    CableNetwork cnet;
+    FixedSizeDict dict;
+    int ncomp, niter;
 
     void allocate(); // called by identify_intersections
-
-    void dict_add(int idtri, int a, int b, int c, int d, int value);
-    int dict_find(int idtri, int a, int b, int c, int d);
-
-    void count_neighbors(int* nb_neigh);
-    int remove_tagged_cable_nodes();
     int remove_isolated_vertices();
 
     bool check_cable_indices();
-    void print_neighbors_stat(int* nb_neigh);
-    void print_cable_length_stat();
 };
 
 #endif

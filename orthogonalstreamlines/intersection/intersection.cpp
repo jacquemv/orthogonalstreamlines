@@ -5,22 +5,22 @@
 #include "intersection.h"
 #include "algebra.cpp"
 #include "streamlinecollection.cpp"
-#include "unionfind.cpp"
+#include "fixedsizedict.cpp"
+#include "vertices.cpp"
+#include "cablenetwork.cpp"
+
+#define MINIMUM_DETERMINANT 1e-12
 
 //-----------------------------------------------------------------------------
 Intersection::Intersection()
 {
     nt = -1;
-    face_normals = NULL;
-    dict_size = NULL;
-    _ver1_ptr = _ver2_ptr = NULL;
-    _tri1_ptr = _tri2_ptr = NULL;
-    ver = NULL;
-    ver_idtri = NULL;
-    ver_sign = NULL;
-    cables = NULL;
-    cables_split = NULL;
-    buffer = NULL;
+    face_normals = nullptr;
+}
+
+//-----------------------------------------------------------------------------
+Intersection::~Intersection()
+{
 }
 
 //-----------------------------------------------------------------------------
@@ -34,30 +34,6 @@ void Intersection::set_normals(int nt_, double* face_normals_)
 void Intersection::insert_streamlines(int orientation, int nb_curves, 
                     int *nb_segments, double* vertices, int* triangle_idx)
 {
-    int j = 0;
-    double** ver_ptr = new double* [nb_curves];
-    int** tri_ptr = new int* [nb_curves];
-    for (int i=0;i<nb_curves;i++) {
-        ver_ptr[i] = vertices + 3*(i+j);
-        tri_ptr[i] = triangle_idx + j;
-        j += nb_segments[i];
-    }
-
-    if (orientation == 1) {
-        set1.initialize(nb_curves, nb_segments, ver_ptr, tri_ptr);
-        _ver1_ptr = ver_ptr; // save pointers for freeing memory at the end
-        _tri1_ptr = tri_ptr;
-    } else if (orientation == 2) {
-        set2.initialize(nb_curves, nb_segments, ver_ptr, tri_ptr);
-        _ver2_ptr = ver_ptr;
-        _tri2_ptr = tri_ptr;
-    }
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::insert_streamlines(int orientation, int nb_curves, 
-                    int *nb_segments, double** vertices, int** triangle_idx)
-{
     if (orientation == 1) {
         set1.initialize(nb_curves, nb_segments, vertices, triangle_idx);
     } else if (orientation == 2) {
@@ -69,177 +45,56 @@ void Intersection::insert_streamlines(int orientation, int nb_curves,
 void Intersection::allocate()
 {
     // number of triangles
-    if (nt < 0) {
-        nt = set1.nt;
-        if (set2.nt > nt) nt = set2.nt;
-    }
+    int min_nt = (set1.nt < set2.nt) ? set1.nt : set2.nt;
 
-    // upper bound for the number of vertices
-    nv_max = 0;
-    int min_nt = set1.nt < set2.nt ? set1.nt : set2.nt;
+    // upper bound for the number of cables and vertices
+    int nv_max = 0;
     for (int i=0;i<min_nt;i++)
         nv_max += set1.bin_size[i] * set2.bin_size[i];
-    ver = new double [nv_max*3];
-    ver_idtri = new int [nv_max];
-    ver_sign = new char [nv_max];
-    nv = 0;
-
-    // allocate cables
-    nc = set1.nb_curves + set2.nb_curves;
-    cables = new int [nv_max*2];
-    cables_split = new int [nc + 1];
-    buffer = new int [nv_max*2];
+    int nc_max = set1.nb_curves + set2.nb_curves;
+    
+    ver.allocate(nv_max);
+    cnet.allocate(nc_max, nv_max*2);
 
     // create dictionary
-    dict_size = new int [nt];
-    dict_keys = new int* [nt];
-    dict_values = new int* [nt];
+    dict.allocate_bins(nt);
     for (int i=0;i<nt;i++) {
-        dict_size[i] = 0;
-        int max_size = 1;
-        if (i < min_nt)
-            max_size = set1.bin_size[i] * set2.bin_size[i];
-        dict_keys[i] = new int [4*max_size];
-        dict_values[i] = new int [max_size];
+        int cap = i < min_nt ? set1.bin_size[i] * set2.bin_size[i] : 1;
+        dict.set_bin_capacity(i, cap);
     }
-}
-
-//-----------------------------------------------------------------------------
-Intersection::~Intersection()
-{
-    delete [] ver;
-    delete [] ver_idtri;
-    delete [] ver_sign;
-    delete [] cables;
-    delete [] cables_split;
-    delete [] buffer;
-    if (dict_size) {
-        delete [] dict_size;
-        for (int i=0;i<nt;i++) {
-            delete [] dict_keys[i];
-            delete [] dict_values[i];
-        }
-        delete [] dict_keys;
-        delete [] dict_values;
-    }
-    delete [] _ver1_ptr;
-    delete [] _ver2_ptr;
-    delete [] _tri1_ptr;
-    delete [] _tri2_ptr;
-}
-
-//-----------------------------------------------------------------------------
-int Intersection::get_number_of_vertices()
-{
-    return nv;
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_vertices(double* vertices)
-{
-    for (int i=0;i<3*nv;i++) vertices[i] = ver[i];
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_triangle_id(int* idtri)
-{
-    for (int i=0;i<nv;i++) idtri[i] = ver_idtri[i];
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_vertex_sign(char* sign)
-{
-    for (int i=0;i<nv;i++) sign[i] = ver_sign[i];
-}
-
-//-----------------------------------------------------------------------------
-int Intersection::get_number_of_cables(int orientation)
-{
-    if (orientation == 1) return nc1;
-    if (orientation == 2) return nc2;
-    return nc;
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_cables_delimiters(int* cables_delimiters)
-{
-    for (int i=0;i<nc+1;i++) cables_delimiters[i] = cables_split[i];
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_cables_length(int* cable_len, int* sum_of_len)
-{
-    for (int i=0;i<nc;i++) cable_len[i] = cables_split[i+1] - cables_split[i];
-    *sum_of_len = cables_split[nc];
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::get_cables(int* cables_)
-{
-    for (int i=0;i<cables_split[nc];i++) cables_[i] = cables[i];
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::dict_add(int idtri, int a, int b, int c, int d, int value)
-{
-    int k = dict_size[idtri];
-    int* p = dict_keys[idtri] + 4*k;
-    p[0] = a; p[1] = b; p[2] = c; p[3] = d;
-    dict_values[idtri][k] = value;
-    dict_size[idtri]++;
-}
-
-//-----------------------------------------------------------------------------
-int Intersection::dict_find(int idtri, int a, int b, int c, int d)
-{
-    for (int k=0;k<dict_size[idtri];k++) {
-        int* p = dict_keys[idtri] + 4*k;
-        if (p[0] == a && p[1] == b && p[2] == c && p[3] == d)
-            return dict_values[idtri][k];
-    }
-    return -1;
 }
 
 //-----------------------------------------------------------------------------
 int segments_intersect(double* A, double* B, double* C, double* D,
-                       double* X, double* n, double* normal)
-// returns the number of intersections
-// n = triangle normal vector
+                       double* normal, double* X, double* cross)
+// returns the number of intersections (0 or 1)
+// X = intersection point
+// cross = (B-A) x (D-C) normal to the triangle
 {
-    double r[3] = {B[0]-A[0], B[1]-A[1], B[2]-A[2]};
-    double s[3] = {D[0]-C[0], D[1]-C[1], D[2]-C[2]};
-    vrmcomp(r, normal);
-    vrmcomp(s, normal); // project on the triangle because of numerical errors
-
-    vcross(n, r, s);
-    double n2 = vnorm2(n);
-    if (n2 <= 0)
+    double r[3], s[3], t[3];
+    vdiff(r, A, B); vdiff(s, C, D); vdiff(t, A, C);
+    vrmcomp(r, normal); vrmcomp(s, normal); 
+    vcross(cross, r, s);
+    double r2 = vnorm2(r), s2 = vnorm2(s);
+    double rs = vdot(r, s), rt = vdot(r, t), st = vdot(s, t);
+    double u, v;
+    double delta = solve2x2(r2, -rs, -rs, s2, rt, -st, u, v);
+    if (delta < MINIMUM_DETERMINANT)
         return 0;
-    
-    double pq[3] = {C[0]-A[0], C[1]-A[1], C[2]-A[2]};
-    double u = vdet(n, pq, s) / n2;
-    if ((u < 0) || (u > 1))
+    if ((u < 0) || (u > 1) || (v < 0) || (v > 1))
         return 0;
-    double v = vdet(n, pq, r) / n2;
-    if ((v < 0) || (v > 1))
-        return 0;
-    X[0] = A[0]+u*r[0];
-    X[1] = A[1]+u*r[1];
-    X[2] = A[2]+u*r[2];
+    vcopyadd(X, A, u, r);
     return 1;
 }
 
 //-----------------------------------------------------------------------------
 void Intersection::identify_intersections()
 {
-    if (!dict_size)
-        allocate();
-    int ne = 0;
-    cables_split[0] = 0;
-    nc = 0;
+    cnet.clear();
 
     // first pass: longitudinal cables
     for (int i=0;i<set1.nb_curves;i++) {
+        cnet.new_cable();
         for (int j=0;j<set1.nb_segments[i];j++) {
             int idtri = set1.get_triangle_id(i, j);
             double* seg1 = set1.get_segment_position(i, j);
@@ -249,110 +104,32 @@ void Intersection::identify_intersections()
             for (int k=0;k<n;k++) {
                 double* seg2 = set2.get_segment_position(idcurv[k], idseg[k]);
                 double cross[3], x[3];
-                int ni;
-                ni = segments_intersect(seg1, seg1+3, seg2, seg2+3, x, cross, normal);
+                int ni = segments_intersect(seg1, seg1+3, seg2, seg2+3, normal, x, cross);
                 if (ni == 1) {
-                    ver[3*nv] = x[0];
-                    ver[3*nv+1] = x[1];
-                    ver[3*nv+2] = x[2];
-                    ver_idtri[nv] = idtri;
-                    ver_sign[nv] = vdot(cross, normal) > 0;
-                    dict_add(idtri, i, j, idcurv[k], idseg[k], ne);
-                    cables[ne] = ne;
-                    ne++;
-                    nv++;
+                    ver.append(x, idtri, vdot(cross, normal) > 0);
+                    dict.add(idtri, i, j, idcurv[k], idseg[k], cnet.size());
+                    cnet.append(cnet.size());
                 }
             }
         }
-        cables_split[++nc] = ne;
     }
-    nc1 = nc;
+    cnet.new_group();
 
     // second pass: transverse cables
     for (int i=0;i<set2.nb_curves;i++) {
+        cnet.new_cable();
         for (int j=0;j<set2.nb_segments[i];j++) {
             int idtri = set2.get_triangle_id(i, j);
             double* seg2 = set2.get_segment_position(i, j);
             int n, *idcurv, *idseg;
             set1.get_segment_ordered_list(idtri, seg2, n, idcurv, idseg);
             for (int k=0;k<n;k++) {
-                int idv = dict_find(idtri, idcurv[k], idseg[k], i, j);
+                int idv = dict.find(idtri, idcurv[k], idseg[k], i, j);
                 if (idv >= 0)
-                    cables[ne++] = idv;
+                    cnet.append(idv);
             }
         }
-        cables_split[++nc] = ne;
     }
-    nc2 = nc-nc1;
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::count_neighbors(int* nb_neigh)
-{
-    for (int i=0;i<nv;i++) nb_neigh[i] = 0;
-
-    for (int n=0;n<nc;n++) {
-        for (int i=cables_split[n];i<cables_split[n+1]-1;i++) {
-            if ((cables[i] == -1) || (cables[i+1] == -1)) continue;
-            nb_neigh[cables[i]]++;
-            nb_neigh[cables[i+1]]++;
-        }
-    }
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::print_neighbors_stat(int* nb_neigh)
-{
-    int hist[6] = {0, 0, 0, 0, 0, 0};
-    for (int i=0;i<nv;i++) {
-        if (nb_neigh[i] < 5)
-            hist[nb_neigh[i]]++;
-        else
-            hist[5]++;
-    }
-    printf("#neigh: {0: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5+: %d}\n", 
-            hist[0], hist[1], hist[2], hist[3], hist[4], hist[5]);
-}
-
-//-----------------------------------------------------------------------------
-void Intersection::print_cable_length_stat()
-{
-    int hist[6] = {0, 0, 0, 0, 0, 0};
-    for (int n=0;n<nc;n++) {
-        int size = cables_split[n+1] - cables_split[n];
-        if (size < 5)
-            hist[size]++;
-        else
-            hist[5]++;
-    }
-    printf("cable len: {0: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5+: %d}\n", 
-            hist[0], hist[1], hist[2], hist[3], hist[4], hist[5]);
-}
-
-//-----------------------------------------------------------------------------
-int Intersection::remove_tagged_cable_nodes()
-{
-    int total_size = cables_split[nc];
-    int cum_size = 0;
-    int k1 = 0, k2;
-    // update cable lengths
-    for (int n=0;n<nc;n++) {
-        k2 = cables_split[n+1];
-        for (int i=k1;i<k2;i++)
-            if (cables[i] != -1) cum_size++;
-        k1 = k2;
-        cables_split[n+1] = cum_size;
-    }
-    // update cable indices
-    int j = 0, cnt = 0;
-    for (int i=0;i<total_size;i++) {
-        if (cables[i] == -1)
-            cnt++;
-        else
-            cables[j++] = cables[i];
-    }
-    assert( j == cum_size );
-    return cnt;
 }
 
 //-----------------------------------------------------------------------------
@@ -360,127 +137,25 @@ int Intersection::remove_isolated_vertices()
 // isolated = in none of the cables or in one/two cable(s) with a single node
 // there may still be cables of length 0 or 1 at the end
 {
-    int* nb_neigh = buffer;
-    int* new_idx = buffer; // Beware! new_idx overwrites nb_neigh (but it's OK)
-    count_neighbors(nb_neigh);
-    #define INVALID_INDEX 999999999
-
-    // remove vertices
-    int j = 0;
-    for (int i=0;i<nv;i++) {
-        if (nb_neigh[i] == 0) {
-            new_idx[i] = INVALID_INDEX;
-        } else {
-            ver[3*j] = ver[3*i];
-            ver[3*j+1] = ver[3*i+1];
-            ver[3*j+2] = ver[3*i+2];
-            ver_idtri[j] = ver_idtri[i];
-            ver_sign[j] = ver_sign[i];
-            new_idx[i] = j;
-            j++;
-        }
-    }
-    int cnt = nv - j;
-    nv = j;
-
-    // remove cables of length 1
-    int total_len = cables_split[nc];
-    for (int n=nc;n>0;n--) {
-        int len = cables_split[n] - cables_split[n-1];
-        if (len == 1) {
-            if (new_idx[cables_split[n-1]] == INVALID_INDEX)
-                len = 0;
-        }
-        cables_split[n] = len;
-    }
-    for (int n=1;n<=nc;n++)
-        cables_split[n] += cables_split[n-1]; 
-    
-    // renumber vertices
-    j = 0;
-    for (int i=0;i<total_len;i++) {
-        int idx = new_idx[cables[i]];
-        cables[j] = idx;
-        j += idx != INVALID_INDEX;
-    }
+    int* nb_neigh = new int[ver.size];
+    cnet.count_neighbors(ver.size, nb_neigh);
+    int cnt = ver.remove_if_zero(nb_neigh);
+    int invalid = ver.renumber_indices(cnet.size(), cnet.idx);
+    if (invalid) printf("Error: %d invalid node indices", invalid);
+    delete [] nb_neigh;
     return cnt;
 }
 
 //-----------------------------------------------------------------------------
 int Intersection::cut_loose_cable_ends()
 {
-    int cnt = -1, total_cnt = 0;
-    int* nb_neigh = buffer;
-
-    while (cnt != 0) {
-        printf("C0");
-        count_neighbors(nb_neigh);
-
-        // tag loose cable ends
-        cnt = 0;
-        for (int n=0;n<nc;n++) {
-            int k1 = cables_split[n];
-            int k2 = cables_split[n+1]-1;
-            int size = k2-k1+1;
-            if (size < 1) continue;
-            // remove cables of size one
-            if (size == 1) {
-                cables[k1] = -1;
-                cnt++;
-                continue;
-            }
-            // cut the beginning of the cable
-            if (nb_neigh[cables[k1]] == 1) {
-                cables[k1] = -1;
-                cnt++;
-                k1++;
-                while (k1 < k2 && nb_neigh[cables[k1]] == 2) {
-                    cables[k1] = -1;
-                    cnt++;
-                    k1++;
-                }
-            }
-            // cut the end of the cable
-            k1 = cables_split[n];
-            if (nb_neigh[cables[k2]] == 1) {
-                cables[k2] = -1;
-                cnt++;
-                k2--;
-                while (k1 < k2 && nb_neigh[cables[k2]] == 2) {
-                    if (cables[k2] == -1) break;
-                    cables[k2] = -1;
-                    cnt++;
-                    k2--;
-                }
-            }
-        }
-        printf("C1");
-        remove_tagged_cable_nodes();
-        total_cnt += cnt;
-    }
-    printf("C2");
-    remove_isolated_vertices();
-    printf("C3");
-    return total_cnt;
+    return cnet.cut_loose_ends(niter);
 }
 
 //-----------------------------------------------------------------------------
 int Intersection::remove_zero_length_cables()
 {
-    int m = 0, cnt1 = 0, cnt2 = 0;
-    for (int n=0;n<nc;n++) {
-        int size = cables_split[n+1] - cables_split[n];
-        if (size == 0) {
-            if (n < nc1) cnt1++; else cnt2++;
-        } else {
-            cables_split[m++] = cables_split[n];
-        }
-    }
-    cables_split[m] = cables_split[nc];
-    nc -= cnt1 + cnt2;
-    nc1 -= cnt1;
-    nc2 -= cnt2;
-    return cnt1 + cnt2;
+    return cnet.squeeze();
 }
 
 //-----------------------------------------------------------------------------
@@ -489,85 +164,85 @@ int Intersection::remove_zero_length_cables()
     int cnt = 0;
     double eps2 = epsilon*epsilon;
 
-    for (int n=0;n<nc;n++) {
-        for (int i = cables_split[n]; i < cables_split[n+1]-1; i++) {
+    for (int n=0;n<cnet.nc;n++) {
+        for (int i = cnet.sep[n]; i < cnet.sep[n+1]-1; i++) {
             double dx[3];
-            vdiff(dx, ver+3*cables[i], ver+3*cables[i+1]);
+            vdiff(dx, ver.pos+3*cnet.idx[i], ver.pos+3*cnet.idx[i+1]);
             if (vnorm2(dx) <= eps2) {
-                if (cables[i] < cables[i+1]) // remove the largest index
-                    cables[i+1] = -1;
+                if (cnet.idx[i] < cnet.idx[i+1]) // remove the largest index
+                    cnet.idx[i+1] = -1;
                 else
-                    cables[i] = -1;
+                    cnet.idx[i] = -1;
                 cnt++;
             }
         }
     }
-    if (cnt) {
-        remove_tagged_cable_nodes();
-        remove_isolated_vertices();
-    }
+    if (cnt)
+        cnet.remove_negative_indices();
     return cnt;
  }
 
 //-----------------------------------------------------------------------------
-int most_freq_val(int n, int *x, int bins)
-// negative values are discarded
-{
-    int* count = new int [bins];
-    for (int i=0;i<bins;i++)
-        count[i] = 0;
-    for (int i=0;i<n;i++)
-        if (x[i] >= 0) count[x[i]]++;
-    int maxcount = 0, argmax = -1;
-    for (int i=0;i<bins;i++)
-        if (count[i] > maxcount) {
-            maxcount = count[i];
-            argmax = i;
-        }
-    delete [] count;
-    return argmax;
-}
-
-//-----------------------------------------------------------------------------
 int Intersection::remove_isolated_regions()
 {
-    UnionFind UF;
-    UF.allocate(nv);
-    int *label = new int [nv];
-    UF.reset(label);
-
-    for (int n=0;n<nc;n++)
-        for (int i = cables_split[n]; i < cables_split[n+1]-1; i++)
-            UF.unite(cables[i], cables[i+1]);
-    
-    int nb_removed = 0;
-    n_comp = UF.assign_label();
-    if (n_comp > 1) {
-        // find the biggest connection region
-        int main_comp = most_freq_val(nv, label, n_comp);
-
-        // count nodes in isolated regions
-        for (int i=0;i<nv;i++)
-            nb_removed += (label[i] != main_comp);
-        // remove these nodes
-        for (int i=0;i<cables_split[nc];i++) {
-            if (label[cables[i]] != main_comp) {
-                //cables[i] = -1;
-            }
-        }
-        //printf("B9\n");
-        remove_tagged_cable_nodes();
-        remove_isolated_vertices();
-    }
-
-    delete [] label;
-    return nb_removed;
+    return cnet.remove_isolated_regions(ncomp);
 }
 
 //-----------------------------------------------------------------------------
 bool Intersection::check_cable_indices()
 {
-    for (int i=0;i<cables_split[nc];i++)
-        if ((cables[i] < 0) || (cables[i] >= nv)) return 0;
+    for (int i=0;i<cnet.size();i++)
+        if ((cnet.idx[i] < 0) || (cnet.idx[i] >= ver.size)) return 0;
     return 1;
+}
+
+//-----------------------------------------------------------------------------
+int Intersection::get_number_of_vertices()
+{
+    return ver.size;
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_vertices(double* vertices)
+{
+    for (int i=0;i<3*ver.size;i++) vertices[i] = ver.pos[i];
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_triangle_id(int* idtri)
+{
+    for (int i=0;i<ver.size;i++) idtri[i] = ver.idtri[i];
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_vertex_sign(char* sign)
+{
+    for (int i=0;i<ver.size;i++) sign[i] = ver.sign[i];
+}
+
+//-----------------------------------------------------------------------------
+int Intersection::get_number_of_cables(int orientation)
+{
+    if (orientation == 1) return cnet.group_sep;
+    if (orientation == 2) return cnet.nc - cnet.group_sep;
+    return cnet.nc;
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_cables_delimiters(int* cables_delimiters)
+{
+    for (int i=0;i<=cnet.nc;i++) cables_delimiters[i] = cnet.sep[i];
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_cables_length(int* cable_len, int* sum_of_len)
+{
+    for (int i=0;i<cnet.nc;i++) cable_len[i] = cnet.sep[i+1] - cnet.sep[i];
+    *sum_of_len = cnet.size();
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_cables(int* cables)
+{
+    for (int i=0;i<cnet.size();i++) cables[i] = cnet.idx[i];
 }
