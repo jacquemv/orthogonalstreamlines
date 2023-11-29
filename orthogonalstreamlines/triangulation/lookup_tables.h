@@ -4142,5 +4142,5 @@ int all_triangulations_edges_10[] = {
 };
 int* all_triangulations_edges[11] = {empty_tri, empty_tri, empty_tri, empty_tri, all_triangulations_edges_4, all_triangulations_edges_5, all_triangulations_edges_6, all_triangulations_edges_7, all_triangulations_edges_8, all_triangulations_edges_9, all_triangulations_edges_10};
 
-int nb_triangles[11] = {    0,    0,    0,    1,    2,    5,   14,   42,  132,  429, 1430 };
+int nb_triangulations[11] = {    0,    0,    0,    1,    2,    5,   14,   42,  132,  429, 1430 };
 int nb_dihedra[11]   = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7 };

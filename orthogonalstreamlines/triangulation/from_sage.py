@@ -72,5 +72,5 @@ with open('sage_triangulations.txt', 'rt') as file:
 
     print('')
 
-    print('int nb_triangles['+str(nmax+1)+'] = {',repr(nb_triangles)[7:-2],'};')
+    print('int nb_triangulations['+str(nmax+1)+'] = {',repr(nb_triangles)[7:-2],'};')
     print('int nb_dihedra['+str(nmax+1)+']   = {',repr(nb_dihedra)[7:-2],'};')
