@@ -121,11 +121,15 @@ void vprint(double *x)
 }
 
 //-----------------------------------------------------------------------------
-void solve2x2(double a11, double a12, double a21, double a22, 
+double solve2x2(double a11, double a12, double a21, double a22, 
               double b1, double b2, double& x1, double& x2)
 {
     double delta = a11*a22-a12*a21;
-    if (delta == 0) return;
-    x1 = (b1*a22 - b2*a12)/delta;
-    x2 = (b2*a11 - b1*a21)/delta;
+    if (delta != 0) {
+        x1 = (b1*a22 - b2*a12)/delta;
+        x2 = (b2*a11 - b1*a21)/delta;
+    } else {
+        x1 = x2 = 0;
+    }
+    return delta;
 }
