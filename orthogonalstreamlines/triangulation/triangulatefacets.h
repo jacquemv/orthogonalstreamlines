@@ -10,6 +10,7 @@ public:
 	
 	// parameters
 	double max_dihedral_thres, max_dihedral_incr;
+	int max_iter;
 	
 	// triangulation
 	TriangulateFacets() {}
@@ -28,11 +29,14 @@ public:
 	double edge_angle(int i, int j, int k1, int k2);
 	double min_angle(int i, int j, int k);
 	double vertex_angle(int i, int j, int k);
-	
+	double min_of_min_angles(int n, int* facet, int* idx);
+	double max_of_dihedral_angles(int n, int* facet, int* idx);
+
 	// triangulation
 	void insert_triangle(int i, int j, int k);
+	void insert_small_facet_trianglulation(int n, int* facet, int* idx);
 	int triangulate_polygon2d(double* ver, int nv, int** tri, int* nt);
-	void triangulate_small_facet(int n, int* facet, double thres);
+	void triangulate_small_facet(int n, int* facet, double thres, int iter);
 	int triangulate_large_facet(int n, int* facet);
 	
 	// utilities

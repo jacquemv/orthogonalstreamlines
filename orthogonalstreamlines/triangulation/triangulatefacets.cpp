@@ -3,6 +3,7 @@
 #include <math.h>
 #include <iostream>
 #include <cassert>
+#include <cfloat>
 
 #include "lookup_tables.h"
 #include "triangulatefacets.h"
@@ -33,6 +34,7 @@ void TriangulateFacets::initialize(int nv_, double* ver_, int nt_max_,
 		tri = tri_;
 	max_dihedral_thres = 0;
 	max_dihedral_incr = 0.1;
+	max_iter = (int)(1.0/max_dihedral_incr+0.5) + 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -88,11 +90,15 @@ void TriangulateFacets::facet_normal(int n, int* facet, double* normal)
 
 //-----------------------------------------------------------------------------
 double TriangulateFacets::edge_angle(int i, int j, int k1, int k2)
+// actually computes -cos(angle), which is a monotonic function of the angle
+// on the interval 0 to pi
 {
 	double n1[3], n2[3];
 	tri_normal(i, j, k1, n1);
 	tri_normal(j, i, k2, n2);
-	return -vdot(n1, n2);
+	double s = -vdot(n1, n2);
+	if (isfinite(s)) return s;
+	return 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -109,6 +115,8 @@ double TriangulateFacets::from_degree(double angle)
 
 //-----------------------------------------------------------------------------
 double TriangulateFacets::min_angle(int i, int j, int k)
+// actually computes -cos(angle), which is a monotonic function of the angle
+// on the interval 0 to pi
 {
 	double a2 = distance2(i, j);
 	double b2 = distance2(j, k);
@@ -122,12 +130,13 @@ double TriangulateFacets::min_angle(int i, int j, int k)
 	double minang = angc;
 	if (angb < minang) minang = angb;
 	if (anga < minang) minang = anga;
-	return minang;
+	if (isfinite(minang)) return minang; 
+	return -1; // equivalent to an angle of zero
 }
 
 //-----------------------------------------------------------------------------
 double TriangulateFacets::vertex_angle(int i, int j, int k)
-{ // angle at j in the triangle (i,j,k)
+{ // -cos(angle) at j in the triangle (i,j,k)
 	double a2 = distance2(i, j);
 	double b2 = distance2(j, k);
 	double c2 = distance2(k, i);
@@ -206,52 +215,77 @@ int TriangulateFacets::triangulate_polygon2d(double* ver, int nv,
 }
 
 //-----------------------------------------------------------------------------
-void TriangulateFacets::triangulate_small_facet(int n, int* facet, 
-												double thres)
+double TriangulateFacets::min_of_min_angles(int n, int* facet, int* idx)
+// minimum over the triangles of the minimum angle of each triangle
 {
-	const double INF = 1e10;
-	double best = -INF;
-	int best_id = -1;
-	double minimax = INF;
-	int* tri = all_triangulations_tri[n];
-	int* adj = all_triangulations_edges[n];
-	
-	for (int i=0;i<nb_triangles[n];i++) {
-	
-		int* idx = &tri[3*(n-2)*i];
-		double face_angle = INF;
-		for (int j=0;j<n-2;j++) {
-			double a = min_angle(facet[idx[0]], facet[idx[1]], facet[idx[2]]);
-			if (a < face_angle) face_angle = a;
-			idx += 3;
-		}
-		
-		idx = &adj[4*(n-3)*i];
-		double dihedral_angle = -INF;
-		for (int j=0;j<n-3;j++) {
-			double a = edge_angle(facet[idx[0]], facet[idx[1]], 
-								  facet[idx[2]], facet[idx[3]]);
-			if (a > dihedral_angle) dihedral_angle = a;
-			idx += 4;
-		}
-		
-		if (dihedral_angle < minimax) minimax = dihedral_angle;
-		if (dihedral_angle > thres) continue;
-		
-		if (face_angle > best) {
-			best_id = i;
-			best = face_angle;
-		}
+	double angle = DBL_MAX;
+	for (int j=0;j<n-2;j++) {
+		double a = min_angle(facet[idx[0]], facet[idx[1]], facet[idx[2]]);
+		if (a < angle) angle = a;
+		idx += 3;
 	}
-	if (best_id < 0) {
-		triangulate_small_facet(n, facet, thres + max_dihedral_incr);
-		return;
+	return angle;
+}
+
+//-----------------------------------------------------------------------------
+double TriangulateFacets::max_of_dihedral_angles(int n, int* facet, int* idx)
+{
+	double dihedral_angle = -DBL_MAX;
+	for (int j=0;j<n-3;j++) {
+		double a = edge_angle(facet[idx[0]], facet[idx[1]], 
+							  facet[idx[2]], facet[idx[3]]);
+		if (a > dihedral_angle) dihedral_angle = a;
+		idx += 4;
 	}
-	int* idx = &tri[3*(n-2)*best_id];
+	return dihedral_angle;
+}
+
+//-----------------------------------------------------------------------------
+void TriangulateFacets::insert_small_facet_trianglulation(int n, int* facet, 
+														  int* idx)
+{
 	for (int j=0;j<n-2;j++) {
 		insert_triangle(facet[idx[0]], facet[idx[1]], facet[idx[2]]);
 		idx += 3;
 	}
+}
+
+//-----------------------------------------------------------------------------
+void TriangulateFacets::triangulate_small_facet(int n, int* facet, 
+												double thres, int iter)
+{
+	if (iter > max_iter) return;
+
+	double best_value = -DBL_MAX;
+	int best_id = -1;
+	int* tri = all_triangulations_tri[n];
+	int* adj = all_triangulations_edges[n];
+
+	for (int i=0;i<nb_triangulations[n];i++) {
+		double inner_angle = min_of_min_angles(n, facet, &tri[3*(n-2)*i]);
+		double dihedral_angle = max_of_dihedral_angles(n, facet, 
+													   &adj[4*(n-3)*i]);
+		// consider first only "flat" trangulations, then progressively allow
+		// larger dihedral angles
+		if (dihedral_angle > thres) continue;
+		
+		if (inner_angle > best_value) {
+			best_id = i;
+			best_value = inner_angle;
+		}
+	}
+
+	if (best_id < 0) {
+		if (iter == max_iter-1) {
+			for (int i=0;i<n;i++) printf("%d ", facet[i]);
+			printf("\n");
+		}
+		// if it doesn't work, releave the constraint
+		triangulate_small_facet(n, facet, thres + max_dihedral_incr, iter+1);
+		return;
+	}
+
+	insert_small_facet_trianglulation(n, facet, &tri[3*(n-2)*best_id]);
 }
 
 //-----------------------------------------------------------------------------
@@ -288,11 +322,11 @@ int TriangulateFacets::triangulate_facet(int n, int* facet)
 {
 	if (n<3) return 0;
 	int err = 0;
-	if (n==3)
+	if (n==3) {
 		insert_triangle(facet[0], facet[1], facet[2]);
-	else if (n <= 10)
-		triangulate_small_facet(n, facet, max_dihedral_thres);
-	else {
+	} else if (n <= 10) {
+		triangulate_small_facet(n, facet, max_dihedral_thres, 0);
+	} else {
 		err = triangulate_large_facet(n, facet);
 	}
 	return err;
