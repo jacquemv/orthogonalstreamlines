@@ -1,6 +1,5 @@
 #include "streamlinecollection.h"
 #include "algebra.h"
-#include <cstddef>
 
 //-----------------------------------------------------------------------------
 StreamlineCollection::StreamlineCollection(int nb_curves_, int *nb_segments_, 
@@ -13,12 +12,12 @@ StreamlineCollection::StreamlineCollection(int nb_curves_, int *nb_segments_,
 StreamlineCollection::StreamlineCollection()
 {
     nt = -1;
-    bin_size = NULL;
-    bin_idcurv = NULL;
-    bin_idseg = NULL;
-    buffer = NULL;
-    ver_ptr = NULL;
-    tri_ptr = NULL;
+    bin_size = nullptr;
+    bin_idcurv = nullptr;
+    bin_idseg = nullptr;
+    buffer = nullptr;
+    ver_ptr = nullptr;
+    tri_ptr = nullptr;
 }
 
 //-----------------------------------------------------------------------------
