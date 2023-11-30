@@ -3,13 +3,18 @@
 #include <math.h>
 #include <iostream>
 #include <cassert>
+#include <array>
 #include <cfloat>
 
 #include "lookup_tables.h"
 #include "triangulatefacets.h"
+#include "algebra.cpp"
 
 #include "polypartition.cpp"
-#include "algebra.cpp"
+#include "earcut.cpp"
+using Coord = double;
+using N = int;
+using Point = std::array<Coord, 2>;
 
 //-----------------------------------------------------------------------------
 TriangulateFacets::TriangulateFacets(int nv_, double* ver_, int nt_max_, 
@@ -185,8 +190,8 @@ void TriangulateFacets::insert_triangle(int i, int j, int k)
 }
 
 //-----------------------------------------------------------------------------
-int TriangulateFacets::triangulate_polygon2d(double* ver, int nv, 
-											 int** tri, int* nt)
+int TriangulateFacets::triangulate_polygon2d_polypart(double* ver, int nv, 
+											 		  int** tri, int* nt)
 {
 	TPPLPoly tp;
 	tp.Init(nv);
@@ -211,6 +216,26 @@ int TriangulateFacets::triangulate_polygon2d(double* ver, int nv,
 		for (int j=0;j<3;j++)
 			(*tri)[k++] = iter->GetPoint(j).id;
 	}
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
+int TriangulateFacets::triangulate_polygon2d_earcut(double* ver, int nv, 
+											 		int** tri, int* nt)
+{
+	std::vector<Point> vertices;
+	std::vector<std::vector<Point>> polygon;
+	for (int i=0;i<nv;i++) {
+		Point P = {ver[2*i], ver[2*i+1]};
+		vertices.push_back(P);
+	}
+	polygon.push_back(vertices);
+	std::vector<N> indices = mapbox::earcut<N>(polygon);
+	int n = (int)(indices.size());
+	*nt = n / 3;
+	*tri = new int [n];
+	for (int k=0;k<n;k++)
+		(*tri)[k] = indices[k];
 	return 0;
 }
 
@@ -304,7 +329,11 @@ int TriangulateFacets::triangulate_large_facet(int n, int* facet)
 	points3d_to_2d(polyver, n, normal);
 	int* idx;
 	int nt, err;
-	err = triangulate_polygon2d(polyver, n, &idx, &nt);
+
+	err = triangulate_polygon2d_polypart(polyver, n, &idx, &nt);
+	if (err < 0)
+		err = triangulate_polygon2d_earcut(polyver, n, &idx, &nt);
+	
 	if (err == 0) {
 		for (int j=0;j<nt;j++) {
 			insert_triangle(facet[idx[0]], facet[idx[1]], facet[idx[2]]);

@@ -35,7 +35,8 @@ public:
 	// triangulation
 	void insert_triangle(int i, int j, int k);
 	void insert_small_facet_trianglulation(int n, int* facet, int* idx);
-	int triangulate_polygon2d(double* ver, int nv, int** tri, int* nt);
+	int triangulate_polygon2d_polypart(double* ver, int nv, int** tri, int* nt);
+	int triangulate_polygon2d_earcut(double* ver, int nv, int** tri, int* nt);
 	void triangulate_small_facet(int n, int* facet, double thres, int iter);
 	int triangulate_large_facet(int n, int* facet);
 	
