@@ -4,7 +4,7 @@ import numpy as np
 __all__ = ['tessellate', 'facet_size', 'find_largest_facets', 
            'group_facets_by_size', 'find_neighbors',
            'identify_facets_and_directions', 'identify_facets',
-           'facets_adjacency_matrix', 'facets_coloring']
+           'facets_adjacency_matrix', 'facet_coloring']
 
 #------------------------------------------------------------------------------
 def tessellate(int[::1] cables_idx, int[::1] cable_len, int cable_sep, 
@@ -408,7 +408,7 @@ def facets_adjacency_matrix(list facets):
     return adj
 
 #------------------------------------------------------------------------------
-def facets_coloring(list facets):
+def facet_coloring(list facets):
     """Map-coloring greedy algorithm for the facets.
 
     Args:
