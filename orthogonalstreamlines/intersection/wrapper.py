@@ -8,13 +8,16 @@ __all__ = ['create_cable_network', 'unpack_cables', 'pack_cables',
 
 CableNetworkOutput = namedtuple('CableNetworkOutput', ['cables', 'cables_len',
                                 'nc_long', 'nc_trans', 'vertices', 
-                                'indices_tri', 'sign', 
-                                'cnt_loose_ends', 'cnt_empty_cables', 
+                                'indices_tri', 'sign', 'is_node',
+                                'cnt_loose_ends', 'niter_loose_ends',
+                                'cnt_empty_cables', 
                                 'cnt_duplicates', 'cnt_isolated_vertices',
-                                'nb_connected_components'])
+                                'nb_connected_components',
+                                'cnt_removed_vertices'])
 
 #-----------------------------------------------------------------------------
 def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
+                         add_ghost_nodes=False,
                          cut_loose_ends=True, remove_empty_cables=True,
                          remove_duplicates=True, epsilon=1e-8,
                          remove_isolated_regions=True):
@@ -37,6 +40,11 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
             transverse direction
         faces2 (list of (n-1)-int32 vectors): same as faces1, but for the 
             transverse direction
+        add_ghost_nodes (bool): add the vertices of the streamlines to the 
+            cables; these "ghost" nodes are intended to facillitate 
+            visualization and create curves instead of segments between 
+            consecutive nodes of the cable, but they are not evenly spaced
+            (default: False)
         cut_loose_ends (bool): remove nodes that only have one neighbor 
             (default: True)
         remove_empty_cables (bool): remove cables of length 0 or 1
@@ -63,16 +71,21 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
         - sign (uint8 vector of size nv): gives 1 of the cross product of the 
           tangent vectors of the intersecting streamlines is in the same
           direction as the vector normal to the surface, and 0 otherwise
+        - is_node (uint8 vector of size nv): gives 1 is the vertex is a real 
+          node and 0 if it is a ghost node (used for visualization)
         - cnt_loose_ends (int): number of nodes removed
+        - niter_loose_ends (int): number of iterations required
         - cnt_empty_cables (int): number of cables removed
         - cnt_duplicates (int): number of duplicate nodes removed
         - cnt_isolated_vertices (int): number of isolated nodes from small 
           connected components that were removed
         - nb_connected_components (int): number of connected components before
           removing the small ones
+        - cnt_removed_vertices (int): total number of nodes removed
     """
     face_normals = np.ascontiguousarray(face_normals, dtype=np.float64)
     out = find_intersections(face_normals, lines1, faces1, lines2, faces2,
+                             add_ghost_nodes=add_ghost_nodes,
                              cut_loose_ends=cut_loose_ends, 
                              remove_empty_cables=remove_empty_cables,
                              remove_duplicates=remove_duplicates,
@@ -81,10 +94,11 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
     return CableNetworkOutput(
         cables=out[0], cables_len=out[1], 
         nc_long=out[2][0], nc_trans=out[2][0], 
-        vertices=out[3], indices_tri=out[4], sign=out[5],
-        cnt_loose_ends=out[6][0], cnt_empty_cables=out[6][1], 
-        cnt_duplicates=out[6][2], cnt_isolated_vertices=out[6][3], 
-        nb_connected_components=out[6][4]
+        vertices=out[3], indices_tri=out[4], sign=out[5], is_node=out[6],
+        cnt_loose_ends=out[7][0], niter_loose_ends=out[7][1], 
+        cnt_empty_cables=out[7][2], cnt_duplicates=out[7][3], 
+        cnt_isolated_vertices=out[7][4], nb_connected_components=out[7][5],
+        cnt_removed_vertices=out[7][4]
     )
 
 #-----------------------------------------------------------------------------

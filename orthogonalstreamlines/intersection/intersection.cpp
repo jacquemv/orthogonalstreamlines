@@ -15,6 +15,7 @@
 Intersection::Intersection()
 {
     nt = -1;
+    add_ghost_nodes = 0;
     face_normals = nullptr;
 }
 
@@ -51,6 +52,12 @@ void Intersection::allocate()
     int nv_max = 0;
     for (int i=0;i<min_nt;i++)
         nv_max += set1.bin_size[i] * set2.bin_size[i];
+    if (add_ghost_nodes) {
+        for (int i=0;i<set1.nb_curves;i++)
+            nv_max += set1.nb_segments[i]+1;
+        for (int i=0;i<set2.nb_curves;i++)
+            nv_max += set2.nb_segments[i]+1;
+    }
     int nc_max = set1.nb_curves + set2.nb_curves;
     
     ver.allocate(nv_max);
@@ -98,6 +105,12 @@ void Intersection::identify_intersections()
         for (int j=0;j<set1.nb_segments[i];j++) {
             int idtri = set1.get_triangle_id(i, j);
             double* seg1 = set1.get_segment_position(i, j);
+            if (add_ghost_nodes) {
+                if (j > 0) {
+                    cnet.append(ver.size);
+                    ver.append_ghost(seg1, idtri, 1);
+                }
+            }
             int n, *idcurv, *idseg;
             set2.get_segment_ordered_list(idtri, seg1, n, idcurv, idseg);
             double* normal = face_normals+3*idtri;
@@ -106,9 +119,9 @@ void Intersection::identify_intersections()
                 double cross[3], x[3];
                 int ni = segments_intersect(seg1, seg1+3, seg2, seg2+3, normal, x, cross);
                 if (ni == 1) {
-                    ver.append(x, idtri, vdot(cross, normal) > 0);
-                    dict.add(idtri, i, j, idcurv[k], idseg[k], cnet.size());
-                    cnet.append(cnet.size());
+                    cnet.append(ver.size);
+                    ver.append_node(x, idtri, vdot(cross, normal) > 0);
+                    dict.add(idtri, i, j, idcurv[k], idseg[k], ver.size-1);
                 }
             }
         }
@@ -121,6 +134,12 @@ void Intersection::identify_intersections()
         for (int j=0;j<set2.nb_segments[i];j++) {
             int idtri = set2.get_triangle_id(i, j);
             double* seg2 = set2.get_segment_position(i, j);
+            if (add_ghost_nodes) {
+                if (j > 0) {
+                    cnet.append(ver.size);
+                    ver.append_ghost(seg2, idtri, 1);
+                }
+            }
             int n, *idcurv, *idseg;
             set1.get_segment_ordered_list(idtri, seg2, n, idcurv, idseg);
             for (int k=0;k<n;k++) {
@@ -218,6 +237,12 @@ void Intersection::get_triangle_id(int* idtri)
 void Intersection::get_vertex_sign(char* sign)
 {
     for (int i=0;i<ver.size;i++) sign[i] = ver.sign[i];
+}
+
+//-----------------------------------------------------------------------------
+void Intersection::get_vertex_is_node(char* is_node)
+{
+    for (int i=0;i<ver.size;i++) is_node[i] = ver.is_node[i];
 }
 
 //-----------------------------------------------------------------------------

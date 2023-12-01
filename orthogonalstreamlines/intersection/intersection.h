@@ -11,6 +11,7 @@ class Intersection {
 public:
     Intersection();
     ~Intersection();
+    int add_ghost_nodes;
 
     void set_normals(int nt_, double* face_normals_);
     void insert_streamlines(int orientation, int nb_curves, 
@@ -27,6 +28,7 @@ public:
     void get_vertices(double* vertices);
     void get_triangle_id(int* idtri);
     void get_vertex_sign(char* sign);
+    void get_vertex_is_node(char* is_node);
     int get_number_of_cables(int orientation);
     void get_cables_length(int* cable_len, int* sum_of_len);
     void get_cables_delimiters(int* cables_delimiters);
