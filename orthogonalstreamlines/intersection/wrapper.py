@@ -93,7 +93,7 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
                              remove_isolated_regions=remove_isolated_regions)
     return CableNetworkOutput(
         cables=out[0], cables_len=out[1], 
-        nc_long=out[2][0], nc_trans=out[2][0], 
+        nc_long=out[2][0], nc_trans=out[2][1], 
         vertices=out[3], indices_tri=out[4], sign=out[5], is_node=out[6],
         cnt_loose_ends=out[7][0], niter_loose_ends=out[7][1], 
         cnt_empty_cables=out[7][2], cnt_duplicates=out[7][3], 
