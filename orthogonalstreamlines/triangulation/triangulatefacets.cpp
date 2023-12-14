@@ -247,7 +247,7 @@ int TriangulateFacets::triangulate_polygon2d_earcut(double* ver, int nv,
 void TriangulateFacets::fix_triangle_orientation(int n, int* facet, int* idx, 
 												 double* normal)
 {
-	for (int j=0;j<n-2;j++) {
+	for (int j=0;j<n;j++) {
 		double vec[3];
 		tri_normal(facet[idx[0]], facet[idx[1]], facet[idx[2]], vec);
 		if (vdot(vec, normal) < 0) {
@@ -286,17 +286,17 @@ double TriangulateFacets::max_of_dihedral_angles(int n, int* facet, int* idx)
 }
 
 //-----------------------------------------------------------------------------
-void TriangulateFacets::insert_facet_triangulation(int n, int* facet, 
+void TriangulateFacets::insert_facet_triangulation(int nt, int* facet, 
 														  int* idx)
 {
-	for (int j=0;j<n-2;j++) {
+	for (int j=0;j<nt;j++) {
 		insert_triangle(facet[idx[0]], facet[idx[1]], facet[idx[2]]);
 		idx += 3;
 	}
 }
 
 //-----------------------------------------------------------------------------
-void TriangulateFacets::triangulate_small_facet(int n, int* facet, 
+int TriangulateFacets::triangulate_small_facet(int n, int* facet, 
 												double thres, int iter)
 {
 	double best_value = -DBL_MAX;
@@ -320,24 +320,26 @@ void TriangulateFacets::triangulate_small_facet(int n, int* facet,
 
 	if ((best_id < 0) && (iter < max_iter)) {
 		// if it doesn't work, releave the constraint
-		triangulate_small_facet(n, facet, thres + max_dihedral_incr, iter+1);
-		return;
+		return triangulate_small_facet(n, facet, thres + max_dihedral_incr, 
+									   iter+1);
 	}
 
-	int *idx = table_tri + 3*(n-2)*best_id;
+	int nt = n-2;
+	int *idx = table_tri + 3*nt*best_id;
 	if (iter <= max_iter / 2) {
-		insert_facet_triangulation(n, facet, idx);
+		insert_facet_triangulation(nt, facet, idx);
 	} else {
-		int* idx_copy = new int [3*(n-2)];
-		for (int j=0;j<3*(n-2);j++) idx_copy[j] = idx[j];
+		int* idx_copy = new int [3*nt];
+		for (int j=0;j<3*nt;j++) idx_copy[j] = idx[j];
 
 		double normal[3];
 		facet_normal(n, facet, normal);
 
-		fix_triangle_orientation(n, facet, idx_copy, normal);
-		insert_facet_triangulation(n, facet, idx_copy);
+		fix_triangle_orientation(nt, facet, idx_copy, normal);
+		insert_facet_triangulation(nt, facet, idx_copy);
 		delete [] idx_copy;
 	}
+	return nt;
 }
 
 //-----------------------------------------------------------------------------
@@ -362,25 +364,23 @@ int TriangulateFacets::triangulate_large_facet(int n, int* facet)
 		err = triangulate_polygon2d_earcut(polyver, n, &idx, &nt);
 	
 	if (err == 0) {
-		insert_facet_triangulation(nt+2, facet, idx);
-		fix_triangle_orientation(nt+2, facet, idx, normal);
+		insert_facet_triangulation(nt, facet, idx);
+		fix_triangle_orientation(nt, facet, idx, normal);
 		delete [] idx; // allocated only if no error
 	}
 	delete [] polyver;
-	return err;
+	return err < 0 ? err : nt;
 }
 
 //-----------------------------------------------------------------------------
 int TriangulateFacets::triangulate_facet(int n, int* facet)
 {
 	if (n<3) return 0;
-	int err = 0;
-	if (n==3) {
+	if (n == 3) {
 		insert_triangle(facet[0], facet[1], facet[2]);
-	} else if (n <= 10) {
-		triangulate_small_facet(n, facet, max_dihedral_thres, 0);
-	} else {
-		err = triangulate_large_facet(n, facet);
+		return 1;
 	}
-	return err;
+	if (n <= 10)
+		return triangulate_small_facet(n, facet, max_dihedral_thres, 0);
+	return triangulate_large_facet(n, facet);
 }

@@ -18,7 +18,7 @@ public:
 	TriangulateFacets(int nv_, double* ver_, int nt_max_, int* tri_);
 	void initialize(int nv_, double* ver_, int nt_max_, int* tri_);
 
-	int triangulate_facet(int n, int* facet);
+	int triangulate_facet(int n, int* facet); // returns #tri or -1
 
 //private:
 	// edge and triangle calculations
@@ -37,7 +37,7 @@ public:
 	void insert_facet_triangulation(int n, int* facet, int* idx);
 	int triangulate_polygon2d_polypart(double* ver, int nv, int** tri, int* nt);
 	int triangulate_polygon2d_earcut(double* ver, int nv, int** tri, int* nt);
-	void triangulate_small_facet(int n, int* facet, double thres, int iter);
+	int triangulate_small_facet(int n, int* facet, double thres, int iter);
 	int triangulate_large_facet(int n, int* facet);
 	void fix_triangle_orientation(int n, int* facet, int* idx, double* normal);
 

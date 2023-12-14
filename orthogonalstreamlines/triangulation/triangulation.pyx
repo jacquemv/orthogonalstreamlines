@@ -34,7 +34,7 @@ def triangulate_facets(double[:, ::1] vertices, list facets,
         int is_tuple
         int[:, ::1] triangles_ptr
         int[::1] facet_ptr
-        int err
+        int nbtri
         list failures = []
 
     nf = len(facets)
@@ -76,18 +76,18 @@ def triangulate_facets(double[:, ::1] vertices, list facets,
             if moves in SUBDIVISION_TABLE:
                 loop1, loop2 = SUBDIVISION_TABLE[moves]
                 facet_ptr = facets[i][0][loop1]
-                engine.triangulate_facet(loop1.size, &facet_ptr[0])
+                nbtri = engine.triangulate_facet(loop1.size, &facet_ptr[0])
                 facet_ptr = facets[i][0][loop2]
-                engine.triangulate_facet(loop2.size, &facet_ptr[0])
-                for j in range(k-2):
+                nbtri += engine.triangulate_facet(loop2.size, &facet_ptr[0])
+                for j in range(nbtri):
                     facetid[engine.nt-j-1] = i_facet
                 i_facet += 1
                 continue
-        err = engine.triangulate_facet(k, &facet_ptr[0])
-        if err:
+        nbtri = engine.triangulate_facet(k, &facet_ptr[0])
+        if nbtri < 0:
             failures.append(np.array(facet_ptr))
         else:
-            for j in range(k-2):
+            for j in range(nbtri):
                 facetid[engine.nt-j-1] = i_facet
         i_facet += 1
 
