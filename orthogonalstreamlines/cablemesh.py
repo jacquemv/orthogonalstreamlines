@@ -37,9 +37,6 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             direction
         nb_seeds (int): number of seed points for streamline generation
             (default: 1024)
-        nb_boundaries (int): number of boundaries (holes) in the surface;
-            default = 2 - Euler characteristic, which means that the genus
-            is assumed to be zero (it wouldn't work for a torus for example)
         options (dict): additional arguments passed to the function
             evenly_spaced_streamlines
         random_seed (tuple of int): set random seed for streameline 
@@ -65,7 +62,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             ver_to_orig_tri (int array of size nv): maps cable vertices to 
                 triangle indices from the original triangulated surface
             tri_to_facet (int array of size nt): maps triangle indices to
-                faet indices
+                facet indices
             neighbors (nv-by-4 int array): indices of up to 4 neighboring 
                 vertices of each vertex; the first two columns are for 
                 neighbors in the longitudinal direction, the next two columns
