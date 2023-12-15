@@ -4,7 +4,7 @@ import numpy as np
 __all__ = ['tessellate', 'facet_size', 'find_largest_facets', 
            'group_facets_by_size', 'find_neighbors',
            'identify_facets_and_directions', 'identify_facets',
-           'facets_adjacency_matrix', 'facet_coloring']
+           'facets_adjacency_matrix', 'facet_coloring', 'facet_normals']
 
 #------------------------------------------------------------------------------
 def tessellate(int[::1] cables_idx, int[::1] cable_len, int cable_sep, 
@@ -369,7 +369,7 @@ def facets_adjacency_matrix(list facets):
 
     Args:
         facets (list): list of numpy arrays of vertex indices forming the 
-            facets it may be necessary to eliminate the facet(s) corresponding 
+            facets; it may be necessary to eliminate the facet(s) corresponding
             to the boundaries
     
     Returns:
@@ -413,7 +413,7 @@ def facet_coloring(list facets):
 
     Args:
         facets (list): list of numpy arrays of vertex indices forming the 
-            facets it may be necessary to eliminate the facet(s) corresponding 
+            facets; it may be necessary to eliminate the facet(s) corresponding
             to the boundaries
     
     Returns:
@@ -451,3 +451,31 @@ def facet_coloring(list facets):
                 available[result[i]] = 0
                 
     return np.array(result)
+
+#------------------------------------------------------------------------------
+def facet_normals(vertices, list facets):
+    """Copmute the normal vector of the facets
+
+    Args:
+        vertices (nv-by-3 array): vertex positions
+        facets (list): list of n-by-3 numpy arrays of vertex indices forming 
+            the facets; the facets are grouped by the number of sides
+    
+    Returns:
+        list of n-by-3 arrays: normal vectors for each facet grouped by the 
+        number of sides
+    """
+    cdef:
+        int n, k
+        list normals
+    normals = [np.empty((0, 3)), np.empty((0, 3)), np.empty((0, 3))]
+    for n, f in enumerate(facets):
+        if n < 3:
+            continue
+        x = vertices[f]
+        L = np.zeros((f.shape[0], 3))
+        for k in range(n):
+            dx = x[:, (k+1) % n] - x[:, k]
+            L += np.cross(x[:, k], dx)
+        normals.append(L)
+    return normals
