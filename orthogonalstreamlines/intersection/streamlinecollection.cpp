@@ -1,5 +1,6 @@
 #include "streamlinecollection.h"
 #include "algebra.h"
+#include <cfloat>
 
 //-----------------------------------------------------------------------------
 StreamlineCollection::StreamlineCollection(int nb_curves_, int *nb_segments_, 
@@ -138,7 +139,9 @@ double vector_coordinate(double *A, double *B, double *C, double *D)
     vdiff(u, A, B); vdiff(v, C, D); vdiff(w, A, C);
     double u2 = vnorm2(u), v2 = vnorm2(v), uv = vdot(u, v);
     double delta = u2*v2 - uv*uv;
-    return (vdot(u, w)*v2 - vdot(w, v)*uv) / delta;
+    double coord = (vdot(u, w)*v2 - vdot(w, v)*uv) / delta;
+    if (isfinite(coord)) return coord;
+    return DBL_MAX;
 }
 
 //-----------------------------------------------------------------------------
@@ -173,4 +176,5 @@ void StreamlineCollection::get_segment_ordered_list(int idtri,
         buffer[i] = vector_coordinate(direction, direction+3, x, x+3);
     }
     insertion_sort_multiple(buffer, idcurv, idseg, n);
+    while ((buffer[n-1] == DBL_MAX) && (n > 0)) n--;
 }
