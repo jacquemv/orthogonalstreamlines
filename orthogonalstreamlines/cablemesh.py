@@ -15,13 +15,14 @@ RATIO_DX_RADIUS = 1.38
 OrthogonalStreamlinesMesh = namedtuple('OrthogonalStreamlinesMesh', [
     'cables', 'nlc', 'ntc', 'dx', 'vertices', 'triangles', 
     'facets', 'boundaries', 'ver_to_orig_tri', 'tri_to_facet',
-    'neighbors', 'sign', 'info', 'random_seed'
+    'neighbors', 'sign', 'info', 'random_seed', 'is_node'
 ])
 
 #-----------------------------------------------------------------------------
 def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
                                        nb_seeds=1024, options=None,
                                        random_seed=None, verbose=True, 
+                                       add_ghost_nodes=False,
                                        unit='cm'):
     """Generate an interconnected cable mesh from evenly spaced orthogonal 
     streamlines
@@ -42,6 +43,11 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
         random_seed (tuple of int): set random seed for streameline 
             generation; there is one seed for longitudinal streamlines and 
             one for transverse streamlines
+        add_ghost_nodes (bool): add the vertices of the streamlines to the 
+            cables; these "ghost" nodes are intended to facilitate 
+            visualization and create curves instead of segments between 
+            consecutive nodes of the cable, but they are not evenly spaced
+            (default: False)
         verbose (bool): print informations during computations (default: True)
         unit (str): unit of distance in the input mesh (used only for
             displaying information); default: 'cm'
@@ -133,7 +139,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
     # compute streamline intersections
 
     with timer('streamline intersections', verbose):
-        mesh.create_cable_mesh()
+        mesh.create_cable_mesh(add_ghost_nodes)
         dx_long, dx_trans = mesh.space_steps()
     info['stats_dx_long'] = calc_stats(dx_long)
     info['stats_dx_trans'] = calc_stats(dx_trans)
@@ -207,6 +213,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
         tri_to_facet=tri_to_facet,
         neighbors=mesh.vneigh,
         sign=mesh.cablenet.sign,
+        is_node=mesh.cablenet.is_node,
         random_seed=(mesh.infos_long.random_seed, 
                      mesh.infos_trans.random_seed),
         info=info
@@ -272,12 +279,13 @@ class OrthogonalStreamlines:
             self.lines_trans, self.faces_trans, self.infos_trans = output
         
     #-------------------------------------------------------------------------
-    def create_cable_mesh(self):
+    def create_cable_mesh(self, add_ghost_nodes=False):
         normals = intersection.tri_normals(self.trisurf.ver, self.trisurf.tri)
         self.cablenet = intersection.create_cable_network(
             normals,
             self.lines_long, self.faces_long,
-            self.lines_trans, self.faces_trans
+            self.lines_trans, self.faces_trans, 
+            add_ghost_nodes=add_ghost_nodes
         )
     
     #-------------------------------------------------------------------------
