@@ -41,7 +41,7 @@ def create_cable_network(face_normals, lines1, faces1, lines2, faces2,
         faces2 (list of (n-1)-int32 vectors): same as faces1, but for the 
             transverse direction
         add_ghost_nodes (bool): add the vertices of the streamlines to the 
-            cables; these "ghost" nodes are intended to facillitate 
+            cables; these "ghost" nodes are intended to facilitate 
             visualization and create curves instead of segments between 
             consecutive nodes of the cable, but they are not evenly spaced
             (default: False)
