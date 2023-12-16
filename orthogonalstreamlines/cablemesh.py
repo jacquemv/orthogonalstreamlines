@@ -171,6 +171,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
 
     with timer('triangulation', verbose):
         mesh.triangulate()
+        wrong_orient = mesh.fix_orientation()
     if verbose:
         print(SPACES+f'{mesh.triangles.shape[0]} triangles')
         failed_loops = mesh.triangulation_failures
@@ -182,6 +183,8 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             s1, s2 = 's' * (n1>1), 's' * (n2>1)
             print(SPACES+f'{n1} facet triangulation failure{s1}'
                   f' ({n2} non-simple polygon{s2})')
+        if wrong_orient > 0:
+            print(SPACES+f'orientation fixed in {wrong_orient} triangles')
         print()
     info['triangulation_failure'] = mesh.triangulation_failures
 
@@ -312,6 +315,16 @@ class OrthogonalStreamlines:
         self.triangles, self.facetid, self.triangulation_failures = \
             triangulation.triangulate_facets(self.cablenet.vertices, 
                                              self.facets, self.cutoff)
+    
+    #-------------------------------------------------------------------------
+    def fix_orientation(self):
+        calc_normals = intersection.tri_normals
+        normals = calc_normals(self.cablenet.vertices, self.triangles)
+        orig_normals = calc_normals(self.trisurf.ver, self.trisurf.tri)
+        idx_orig = self.cablenet.indices_tri[self.triangles[:, 0]]
+        I =  np.sum(normals * orig_normals[idx_orig], axis=1) <= 0
+        self.triangles[I] = self.triangles[I][:, [0, 2, 1]]
+        return I.sum()
     
     #-------------------------------------------------------------------------
     def histogram_facets(self):
