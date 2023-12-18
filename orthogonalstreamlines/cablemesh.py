@@ -231,7 +231,7 @@ def calc_stats(x):
 def print_stats(name, stat, unit, more_space=0):
     spaces = SPACES + ' ' * len(name) + '  ' + ' ' * more_space
     print(SPACES+name+': ' + ' ' * more_space + 
-          f"mean = {stat['std']:.4f}, std = {stat['std']:.4f} " + unit)
+          f"mean = {stat['mean']:.4f}, std = {stat['std']:.4f} " + unit)
     q = stat['quartiles']
     print(spaces + 
           f'q1 =   {q[0]:.4f}, med = {q[1]:.4f}, q3 = {q[2]:.4f} ' + unit)
