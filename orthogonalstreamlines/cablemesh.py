@@ -32,7 +32,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             of type numpy.float64
         triangles (nt-by-3 int array): indices of the vertices of the nt 
             triangles of type numpy.int32
-        orient (bt-by-3 array): orientation vector in each triangle
+        orient (nt-by-3 array): orientation vector in each triangle
         dx (float or tuple): target mesh resolution; if dx is a tuple, 
             resolution is different in the longitudinal and transverse 
             direction
@@ -79,6 +79,8 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
                 tangent vectors of the streamlines at their intersection
             random_seed (tuple of int): random seeds used for streamlines 
                 generation
+            is_node (int array of size nv): = 0 if the vertex is a ghost node,
+                and 1 otherwise
             info (dict): internal information about the calculations
     """
     UNIT = unit
@@ -270,7 +272,7 @@ class OrthogonalStreamlines:
             radius = dx / RATIO_DX_RADIUS
         if options is None:
             options = {}
-        
+
         output = evenly_spaced_streamlines(
             self.trisurf.ver, self.trisurf.tri, self.trisurf.orient, 
             radius=radius, orthogonal=(direction != 'long'),
