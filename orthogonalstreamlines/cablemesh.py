@@ -32,7 +32,7 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
             of type numpy.float64
         triangles (nt-by-3 int array): indices of the vertices of the nt 
             triangles of type numpy.int32
-        orient (nt-by-3 array): orientation vector in each triangle
+        orientation (nt-by-3 array): orientation vector in each triangle
         dx (float or tuple): target mesh resolution; if dx is a tuple, 
             resolution is different in the longitudinal and transverse 
             direction
@@ -85,6 +85,12 @@ def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
     """
     UNIT = unit
     info = {}
+
+    # check matrix format
+
+    vertices = np.ascontiguousarray(vertices, dtype=np.float64)
+    triangles = np.ascontiguousarray(triangles, dtype=np.int32)
+    orientation = np.ascontiguousarray(orientation, dtype=np.float64)
 
     # check geometry
 
