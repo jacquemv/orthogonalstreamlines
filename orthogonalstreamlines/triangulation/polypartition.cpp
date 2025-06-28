@@ -18,6 +18,7 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //THE SOFTWARE.
 
+// https://github.com/ivanfratric/polypartition/tree/master
 
 #include <stdio.h>
 #include <string.h>
