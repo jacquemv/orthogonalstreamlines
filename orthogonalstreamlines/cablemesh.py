@@ -19,11 +19,11 @@ OrthogonalStreamlinesMesh = namedtuple('OrthogonalStreamlinesMesh', [
 ])
 
 #-----------------------------------------------------------------------------
-def create_orthogonal_streamlines_mesh(vertices, triangles, orientation, dx,
-                                       nb_seeds=1024, options=None,
-                                       random_seed=None, verbose=True, 
-                                       add_ghost_nodes=False,
-                                       unit='cm'):
+def create_orthogonal_streamlines_mesh(
+        vertices, triangles, orientation, dx, *,
+        nb_seeds=1024, options=None,
+        random_seed=None, verbose=True, add_ghost_nodes=False,
+        unit='cm') -> OrthogonalStreamlinesMesh:
     """Generate an interconnected cable mesh from evenly spaced orthogonal 
     streamlines
 
