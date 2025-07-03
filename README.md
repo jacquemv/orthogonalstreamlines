@@ -3,7 +3,7 @@
 
 ### Objective
 
-The aim of this python package is to generate a surface mesh composed of interconnected cables constructed from streamlines parallel or orthogonal to a given orientation field on the surface. The target application is the simulation of electrical propagation in a cardiac tissue (the left atrium in the figure above) [1].
+The aim of this python package is to generate a surface mesh composed of interconnected cables constructed from evenly-spaced streamlines parallel and orthogonal to a given orientation field on the surface (an oriented manifold). The lengths of the edges in the resulting mesh generally vary between 0.7 and 1.4 times the target resolution (dx). The application that motivated this developement is the simulation of electrical propagation in a cardiac tissue (the figure above shows a left atrium) [1].
 
 The algorithm and its applications are discussed in our paper [2]. The implementation relies on our evenly-spaced streamline generation method [3] available on github ([evenlyspacedstreamlines](https://github.com/jacquemv/evenlyspacedstreamlines)).
 
