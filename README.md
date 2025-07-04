@@ -44,7 +44,7 @@ The arguments **vertices** and **triangles** define the triangulated surface, an
 - **vertices** (nv-by-3 array): x, y, z coordinates of the nv vertices of type numpy.float64
 - **triangles** (nt-by-3 int array): indices of the vertices of the nt triangles of type numpy.int32
 - **orientation** (nt-by-3 array): orientation vector in each triangle
-- **dx** (float or tuple): target mesh resolution; if dx is a tuple, resolution is different in the longitudinal and transverse direction
+- **dx** (float or tuple): target mesh resolution in the same unit as 'vertices'; if dx is a tuple, resolution is different in the longitudinal (first value) and transverse direction (second value).
 
 ### Optional keyword arguments
 

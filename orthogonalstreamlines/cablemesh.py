@@ -33,9 +33,10 @@ def create_orthogonal_streamlines_mesh(
         triangles (nt-by-3 int array): indices of the vertices of the nt 
             triangles of type numpy.int32
         orientation (nt-by-3 array): orientation vector in each triangle
-        dx (float or tuple): target mesh resolution; if dx is a tuple, 
-            resolution is different in the longitudinal and transverse 
-            direction
+        dx (float or tuple): target mesh resolution in the same unit as 
+            'vertices'; if dx is a tuple, resolution is different in the 
+            longitudinal (first value) and transverse direction (second 
+            value)
         nb_seeds (int): number of seed points for streamline generation
             (default: 1024)
         options (dict): additional arguments passed to the function
@@ -273,6 +274,10 @@ class OrthogonalStreamlines:
     def generate_streamlines(self, dx, direction, nb_seeds=1024, 
                              options=None):
         if isinstance(dx, (tuple, list)):
+            # the distance between longitudinal cables determines transverse 
+            # resolution, so the longitudinal radius is based on the 
+            # transverse dx (when direction == 'long' is equal to 1)
+            # and reciprocally
             radius = dx[direction == 'long'] / RATIO_DX_RADIUS
         else:
             radius = dx / RATIO_DX_RADIUS
