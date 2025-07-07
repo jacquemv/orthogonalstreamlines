@@ -108,7 +108,7 @@ def group_facets_by_size(list facets, int cutoff=1000000):
             facet in the original list
     """
     cdef:
-        int n, i, k, max_size, is_tuple, i_facet
+        long n, i, k, max_size, is_tuple, i_facet
         list boundaries, facet_groups, facetid_groups
     
     if not facets:
@@ -192,8 +192,8 @@ def find_neighbors(int[::1] cables_idx, int[::1] cable_len, int cable_sep,
         int[:, :] nexthalfedges
         int[:] halfedge_cable
 
-    nc = cable_len.size
-    nv = sign.size
+    nc = <int>cable_len.size
+    nv = <int>sign.size
     for i in range(nc):
         nhe += max(2 * cable_len[i] - 2, 0)
     vneigh_arr = np.full((nv, 4), -1, dtype=np.int32)
@@ -289,7 +289,7 @@ def identify_facets_and_directions(int[:, ::1] halfedges, int[:, ::1] heneigh):
         str moves
         int k0 = 0, k, m, e, nhe
         char [::1] taken
-    nhe = halfedges.shape[0]
+    nhe = <int>halfedges.shape[0]
     taken = np.zeros(nhe, dtype=np.uint8)
     while True:
         while k0 < nhe and taken[k0]:
@@ -338,7 +338,7 @@ def identify_facets(int[:, ::1] halfedges, int[:, ::1] heneigh):
         str moves
         int k0 = 0, k, m, e, nhe
         char [::1] taken
-    nhe = halfedges.shape[0]
+    nhe = <int>halfedges.shape[0]
     taken = np.zeros(nhe, dtype=np.uint8)
     while True:
         while k0 < nhe and taken[k0]:

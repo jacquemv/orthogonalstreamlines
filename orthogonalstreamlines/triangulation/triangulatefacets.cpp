@@ -10,11 +10,14 @@
 #include "triangulatefacets.h"
 #include "algebra.cpp"
 
-#include "polypartition.cpp"
+#include "polypartition.cpp"	
 #include "earcut.cpp"
 using Coord = double;
 using N = int;
 using Point = std::array<Coord, 2>;
+#ifndef M_PI // for MSVC compiler
+	#define M_PI 3.14159265358979323846264338327950288419716
+#endif
 
 //-----------------------------------------------------------------------------
 TriangulateFacets::TriangulateFacets(int nv_, double* ver_, int nt_max_, 

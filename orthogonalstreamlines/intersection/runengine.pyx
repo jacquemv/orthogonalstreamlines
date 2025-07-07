@@ -80,13 +80,13 @@ def find_intersections(double[:, ::1] face_normals,
                              f'more row than faces2[{i}]')
     
     # create the object 
-    nt = face_normals.shape[0]
+    nt = <int>face_normals.shape[0]
     if nt == 0:
         return empty_output()
     engine.set_normals(nt, &face_normals[0, 0])
 
     # longitudinal streamlines
-    nc = len(lines1)
+    nc = <int>len(lines1)
     if nc == 0:
         return empty_output()
     nseg1 = np.array([face.size for face in faces1], dtype=np.int32)
@@ -99,7 +99,7 @@ def find_intersections(double[:, ::1] face_normals,
                               &lines1_memview[0, 0], &faces1_memview[0])
 
     # transverse streamlines
-    nc = len(lines2)
+    nc = <int>len(lines2)
     if nc == 0:
         return empty_output()
     nseg2 = np.array([face.size for face in faces2], dtype=np.int32)

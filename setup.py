@@ -18,7 +18,7 @@ if platform.system() == 'Windows':
     compiler_args = ['/openmp', '/O2']
     linker_args = []
 else:
-    compiler_args = ['-fopenmp', '-O3']
+    compiler_args = ['-fopenmp', '-O3', '-Wall', '-Wextra', '-Wpedantic']
     linker_args = ['-fopenmp']
 
 FILES = {
