@@ -1,2 +1,6 @@
 graft orthogonalstreamlines
+exclude orthogonalstreamlines/intersection/runengine.cpp
+exclude orthogonalstreamlines/tessellation/tessellation.cpp
+exclude orthogonalstreamlines/triangulation/triangulation.cpp
+exclude .vscode/* orthogonalstreamlines/.vscode/*
 global-exclude *.py[cod] *.so
