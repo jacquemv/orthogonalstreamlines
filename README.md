@@ -1,5 +1,5 @@
 
-![Illustration of streamlines](illustration.png)
+![Illustration of streamlines](https://github.com/jacquemv/orthogonalstreamlines/blob/main/illustration.png?raw=true)
 
 ### Objective
 
@@ -25,7 +25,7 @@ for cable in mesh.cables:
 plt.show()
 ```
 
-![Figure](example/figure.png)
+![Figure](https://github.com/jacquemv/orthogonalstreamlines/blob/main/example/figure.png?raw=true)
 
 ### Syntax
 
