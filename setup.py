@@ -12,13 +12,16 @@ AUTHOR = "Vincent Jacquemet"
 EMAIL = "vincent.jacquemet@umontreal.ca"
 LICENSE = "MIT"
 SRC_DIR = "orthogonalstreamlines"
-PACKAGES = [SRC_DIR]
+PACKAGES = [SRC_DIR, 
+            SRC_DIR+'/intersection', 
+            SRC_DIR+'/tessellation', 
+            SRC_DIR+'/triangulation']
 
 if platform.system() == 'Windows':
     compiler_args = ['/openmp', '/O2']
     linker_args = []
 else:
-    compiler_args = ['-fopenmp', '-O3', '-Wall', '-Wextra', '-Wpedantic']
+    compiler_args = ['-fopenmp', '-O3', '-Wall']
     linker_args = ['-fopenmp']
 
 FILES = {
