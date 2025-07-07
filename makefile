@@ -12,8 +12,8 @@ check: sdist
 
 tag:
 	## change tag in setup.py
-	# git tag -a v0.1.0 -m "version 0.1.0"
-	# git push origin v0.1.0
+	# git tag -a v0.1.1 -m "version 0.1.1"
+	# git push origin v0.1.1
 
 upload: sdist
 	twine upload dist/*

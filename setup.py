@@ -3,7 +3,7 @@ from setuptools import setup, Extension
 from Cython.Distutils import build_ext
 
 NAME = "orthogonalstreamlines"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DESCR = "Create an interconnected cable mesh from an orientation field on a triangulated 3D surface"
 KEYWORDS = "mesh,cables,surface,streamlines"
 URL = "http://github.com/jacquemv/orthogonalstreamlines"
